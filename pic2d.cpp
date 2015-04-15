@@ -19,8 +19,8 @@
 
 #define max_SPe     100000        	// Limite (computacional) de Superpartículas electrónicas
 #define max_SPi     100000      	  // Limite (computacional) de Superpartículas iónicas
-#define J_X         64      		  // Número de puntos de malla X. Recomendado: Del orden 2^n-1
-#define J_Y			    16			        // Número de puntos de malla Y. Recomendado: Del orden 2^n
+#define J_X         4095      		  // Número de puntos de malla X. Recomendado: Del orden 2^n-1
+#define J_Y			    64			          // Número de puntos de malla Y. Recomendado: Del orden 2^n
 //#define nptp        1388     	      // Número de pasos de tiempo por periodo plásmico electrónico (1388) 
 
 using namespace std;
@@ -30,9 +30,12 @@ double RANDMAX;
 void	  Cond_inic(void);
 double	distrib_vel_X(double fmax, double vphi);
 double	distrib_vel_Y(double fmax, double vphi);
+double distrib_vel_Y_temp(double fmax,double vphi, int distemp);
+
 void	  Concentration(double pos[max_SPe][2], double n[J_X][J_Y], int NSP);
 
 void 	  Poisson2D_DirichletX_PeriodicY(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y]);
+void    Poisson2D_DirichletX_DirichletY(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y]);
 void	  Electric_Field (double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][J_Y]);
 
 void 	  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie);
@@ -101,10 +104,14 @@ double  cte_E=t0*e*E0/(vflux_i[0]*m_e),fact_el=-1, fact_i=1./razon_masas;
 //double  cte_E=x0*m_i/(e*t0),fact_el=-1, fact_i=1./razon_masas;
 double  Ek_i,Ek_e,E_field,E_total, E_perdida;
 double  Et0=k_b*Te;
+
+
 double  vxe_perd[max_SPe];
 int     perdidas[max_SPe];  
 int     perd=0;
-int     cont_per=0;
+int     total_e_perdidos=0;
+int     total_i_perdidos=0;
+double  mv2perdidas=0;
 FILE    *outPot19,*outEnergia, *outPot0_6, *outPot0_9, *outPot1_5, *outPot3_5, *outPot5_5, *outPot15;
 
 FILE    *outFase_ele[61];
@@ -320,7 +327,7 @@ int main()
           //if(kt != 0)
 
           //clock_t tiempo1 = clock();
-          fprintf(outEnergia,"%e %e %e %e %e  %e  %e %d  %e \n", kt*dt, E_total, E_i,E_e,E_field, ve_cm, vi_cm, perd, E_perdida );
+          fprintf(outEnergia,"%e %e %e %e %e  %e  %e %d  %e \n", kt*dt, E_total, E_i,E_e,E_field, ve_cm, vi_cm, total_e_perdidos, E_perdida );
           //printf("Out Energia\n");
           
           //cout << " CPU time Full = " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC<< " sec" << endl;          
@@ -380,8 +387,8 @@ void Cond_inic (void)
    {
      pos_e[i+le][0]=0.0; 
      vel_e[i+le][0]= distrib_vel_X (fe_Maxwell[0],vphi_e[0]);
-     pos_e[i+le][1]=L_max[1]/2.0; 
-     vel_e[i+le][1]=distrib_vel_Y (fe_Maxwell[1],vphi_e[1]);
+     pos_e[i+le][1]=L_max[1]/2.0;
+     vel_e[i+le][1]=distrib_vel_Y(fe_Maxwell[1],vphi_e[1]);
    }
  
    le=le+max_SPe_dt;
@@ -399,14 +406,30 @@ void Cond_inic (void)
 
 double distrib_vel_X(double fmax,double vphi) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
                                              // (Ver pág. 291 Computational Physics Fitzpatrick: Distribution functions--> Rejection Method)
-{                                             
+{ 
+                                          
   double sigma=vphi;                           // sigma=vflujo=vth    ( "dispersión" de la distribución Maxweliana)
   double vmin= 0. ;                            // Rapidez mínima  
   double vmax= 4.*sigma;                       // Rapidez máxima
   double v,f,f_random;
 
+  static int flag = 0;
+  if (flag == 0)
+  {
+    int seed = time (NULL);
+    srand (seed);
+    flag = 1;
+  }  
   v=vmin+(vmax-vmin)*double(rand())/double(RAND_MAX); // Calcular valor aleatorio de v uniformemente distribuido en el rango [vmin,vmax]
   f =fmax*exp(-(1.0/M_PI)*pow(v/vphi,2));     //                       
+
+  if (flag == 0)
+  {
+    int seed = time (NULL);
+    srand (seed);
+    flag = 1;
+  }  
+
   f_random = fmax*double(rand())/double(RAND_MAX);    // Calcular valor aleatorio de f uniformemente distribuido en el rango [0,fmax]
 
   if (f_random > f) return distrib_vel_X(fmax,vphi);
@@ -415,18 +438,41 @@ double distrib_vel_X(double fmax,double vphi) // función para generar distribuc
 
 double distrib_vel_Y(double fmax,double vphi) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
                                              // (Ver pág. 291 Computational Physics Fitzpatrick: Distribution functions--> Rejection Method)
+{                                            
+  double sigma=vphi;                           // sigma=vflujo=vth    ( "dispersión" de la distribución Maxweliana)
+  double vmin= -3.*sigma;                            // Rapidez mínima  
+  double vmax= 3.*sigma;                       // Rapidez máxima
+  double v,f,f_random;
+
+  static int flag = 0;
+  if (flag == 0)
+  {
+    int seed = time (NULL);
+    srand (seed);
+    flag = 1;
+  }  
+
+  v=vmin+(vmax-vmin)*double(rand())/double(RAND_MAX); // Calcular valor aleatorio de v uniformemente distribuido en el rango [vmin,vmax]
+  f =fmax*exp(-(1.0/M_PI)*pow(v/vphi,2));     //                       
+
+  if (flag == 0)
+  {
+    int seed = time (NULL);
+    srand (seed);
+    flag = 1;
+  }  
+
+  f_random = fmax*double(rand())/double(RAND_MAX);    // Calcular valor aleatorio de f uniformemente distribuido en el rango [0,fmax]
+
+  if (f_random > f) return distrib_vel_Y(fmax,vphi);
+  else return  v;
+}
+
+double distrib_vel_Y_temp(double fmax,double vphi, int distemp) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
+                                             // (Ver pág. 291 Computational Physics Fitzpatrick: Distribution functions--> Rejection Method)
 {                                             
-    double sigma=vphi;                           // sigma=vflujo=vth    ( "dispersión" de la distribución Maxweliana)
-    double vmin= -3.*sigma;                            // Rapidez mínima  
-    double vmax= 3.*sigma;                       // Rapidez máxima
-    double v,f,f_random;
-
-    v=vmin+(vmax-vmin)*double(rand())/double(RAND_MAX); // Calcular valor aleatorio de v uniformemente distribuido en el rango [vmin,vmax]
-    f =fmax*exp(-(1.0/M_PI)*pow(v/vphi,2));     //                       
-    f_random = fmax*double(rand())/double(RAND_MAX);    // Calcular valor aleatorio de f uniformemente distribuido en el rango [0,fmax]
-
-    if (f_random > f) return distrib_vel_Y(fmax,vphi);
-    else return  v;
+double v=2*vphi*pow(-1,distemp);
+return v;
 }
 
 //**********************************************************************************************
@@ -470,7 +516,7 @@ void Poisson2D_DirichletX_PeriodicY(double phi[J_X][J_Y],complex <double> rho[J_
     fftw_complex *f2;
     fftw_plan p,p_y,p_i,p_yi;
     f= (double*) malloc(sizeof(double)* 2*(M+1));
-    f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 2*N);
+    f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) *N);
 
     p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
     p_y = fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);    
@@ -678,12 +724,18 @@ void Electric_Field (double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X]
       {
         E_X[j][k]=(phi[j-1][k]-phi[j+1][k])/(2.*hx);
         E_Y[j][k]=(phi[j][k-1]-phi[j][k+1])/(2.*hx);
-        E_X[0][k]=0; E_Y[0][k]=0;
-        E_X[J_X-1][k]=0; E_Y[J_X-1][k]=0;
+
+        E_X[0][k]=0;  //Cero en las fronteras X
+        E_Y[0][k]=0;
+        E_X[J_X-1][k]=0; 
+        E_Y[J_X-1][k]=0;
       }          
-      E_X[j][0]=(phi[j-1][0]-phi[j+1][0])/(2.*hx); E_Y[j][0]=(phi[j][J_Y-1]-phi[j][1])/(2.*hx);
+
+      E_X[j][0]=(phi[j-1][0]-phi[j+1][0])/(2.*hx); 
+      E_Y[j][0]=(phi[j][J_Y-1]-phi[j][1])/(2.*hx);
         
-      E_X[j][J_Y-1]=(phi[j-1][J_Y-1]-phi[j+1][J_Y-1])/(2.*hx); E_Y[j][J_Y-1]=(phi[j][J_Y-2]-phi[j][0])/(2.*hx);
+      E_X[j][J_Y-1]=(phi[j-1][J_Y-1]-phi[j+1][J_Y-1])/(2.*hx); 
+      E_Y[j][J_Y-1]=(phi[j][J_Y-2]-phi[j][0])/(2.*hx);
   }
 }
 
@@ -730,7 +782,20 @@ void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int espe
 
        if (pos[i][X]>L_max[X]) //Partícula fuera del espacio de Simulación
        {    
-            conteo_perdidas++;  
+            conteo_perdidas++;
+            if(especie==electrones)
+            {
+              total_e_perdidos++;
+              printf("Electron perdido No. %d,  i=%d, kt=%d \n",total_e_perdidos, i ,kt);
+              mv2perdidas+=pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2);
+            }
+            else
+            {
+              total_i_perdidos++;
+              printf("Ion perdido No. %d,  i=%d, kt=%d \n",total_i_perdidos, i ,kt);
+              mv2perdidas+=pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2);
+            }
+            /*
             ind = 0;
             cont_per = 0;
             if(perd==0)
@@ -751,25 +816,25 @@ void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int espe
                 vxe_perd[perd] = sqrt(vel[i][0]*vel[i][0]+vel[i][1]*vel[i][1]);
                 perd ++;
                 printf("Particula perdida= %d, especie=%d,  i=%d, kt=%d \n", perd, especie, i ,kt);
-          } 
+          } */
          
        }
 
 
-       while(pos[i][1]>L_max[1]) //Ciclo en el eje Y.
+       while(pos[i][Y]>=L_max[Y]) //Ciclo en el eje Y.
        {
-          pos[i][1]=pos[i][1]-L_max[1];
+          pos[i][Y]=pos[i][Y]-L_max[Y];
        }
 
-       while(pos[i][1]<0.0) //Ciclo en el eje Y.
+       while(pos[i][Y]<0.0) //Ciclo en el eje Y.
        {
 
-          pos[i][1]=L_max[1]+pos[i][1];
+          pos[i][Y]=L_max[Y]+pos[i][Y];
        }
 
 
 
-       if(pos[i][X]>=0 && pos[i][X]<=L_max[0])
+       if(pos[i][X]>=0 && pos[i][X]<=L_max[X])
         {
             kk1=kk1+1;
             pos[kk1-1][X]=pos[i][X]; 
@@ -782,21 +847,25 @@ void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int espe
 
        if(kt%10000==0&&especie==electrones)
           {
-              fprintf(outFase_ele[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos[i][0],vel[i][0],pos[i][1],vel[i][1]);
+              fprintf(outFase_ele[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
               //printf("Fase out\n");
           }
 
        if(kt%10000==0&&especie==Iones)
           {
-              fprintf(outFase_ion[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos[i][0],vel[i][0],pos[i][1],vel[i][1]);
+              fprintf(outFase_ion[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
           }
 
     }
 
     if(especie==electrones)
+    {
       le=le-conteo_perdidas;
+    }
     else
+    {
       li=li-conteo_perdidas;
+    }
 }
 
 void Funcion_Distribucion(double pos[max_SPe][2], double vel[max_SPe][2] , int NSP, char *archivo_X, char *archivo_Y)
