@@ -10,41 +10,40 @@
 #include <complex.h>
 #include <fftw3.h>
 
-//Magnitudes f.
+//Magnitudes físicas
 
-#define m_e         9.10938291e-31	// Masa del Electrón
-#define e           1.6021e-19		  // Carga del Electrón
-#define k_b         1.3806504e-23	  // Constante de Boltzmann
-#define epsilon_0	  8.854187e-12	  // Permitividad eléctrica del vacío
+#define m_e         9.10938291e-31  // Masa del Electrón
+#define e           1.6021e-19      // Carga del Electrón
+#define k_b         1.3806504e-23   // Constante de Boltzmann
+#define epsilon_0   8.854187e-12    // Permitividad eléctrica del vacío
 
-#define max_SPe     100000        	// Limite (computacional) de Superpartículas electrónicas
-#define max_SPi     100000      	  // Limite (computacional) de Superpartículas iónicas
-#define J_X         4095      		  // Número de puntos de malla X. Recomendado: Del orden 2^n-1
-#define J_Y			    64			          // Número de puntos de malla Y. Recomendado: Del orden 2^n
-//#define nptp        1388     	      // Número de pasos de tiempo por periodo plásmico electrónico (1388) 
+#define max_SPe     100000          // Limite (computacional) de Superpartículas electrónicas
+#define max_SPi     100000          // Limite (computacional) de Superpartículas iónicas
+#define J_X         4095            // Número de puntos de malla X. Recomendado: Del orden 2^n-1
+#define J_Y         7                // Número de puntos de malla Y. Recomendado: Del orden 2^n-1
 
 using namespace std;
 
 double RANDMAX;
 
-void	  Cond_inic(void);
-double	distrib_vel_X(double fmax, double vphi);
-double	distrib_vel_Y(double fmax, double vphi);
-double distrib_vel_Y_temp(double fmax,double vphi, int distemp);
+void    inject_Particles(double pos_e[max_SPe][2], double vel_e[max_SPe][2], double pos_i[max_SPi][2], double vel_i[max_SPi][2]);
+double  create_Velocities_X(double fmax, double vphi);
+double  create_Velocities_Y(double fmax, double vphi);
+double  create_Velocities_Y_temp(double fmax,double vphi, int distemp);
 
-void	  Concentration(double pos[max_SPe][2], double n[J_X][J_Y], int NSP);
+void    Concentration(double pos[max_SPe][2], double n[J_X][J_Y], int NSP);
 
-void 	  Poisson2D_DirichletX_PeriodicY(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y]);
+void    Poisson2D_DirichletX_PeriodicY(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y]);
+void    Poisson2D_DirichletX_PeriodicYb(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y]); //Propósitos de prueba
+
 void    Poisson2D_DirichletX_DirichletY(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y]);
-void	  Electric_Field (double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][J_Y]);
+void    Electric_Field (double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][J_Y]);
 
-void 	  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie);
+void    Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y]);
+void    update_Positions(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie);
+void    update_Velocities(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y]);
+
 void    Funcion_Distribucion(double pos[max_SPe][2], double vel[max_SPe][2] , int NSP, char *archivo_X, char *archivo_Y);
-
-double  pos_e[max_SPe][2],vel_e[max_SPe][2],pos_i[max_SPi][2], vel_i[max_SPi][2]; //Posiciones y Velocidades
-double	ne[J_X][J_Y],ni[J_X][J_Y];     //Densidad de Partículas
-complex <double> rho[J_X][J_Y];
-double phi[J_X][J_Y], E_X[J_X][J_Y], E_Y[J_X][J_Y];
 
 int     electrones=0, Iones=1;
 int     X=0, Y=1;
@@ -53,22 +52,22 @@ int     X=0, Y=1;
 // Parámetros del sistema
 //************************
 
-double	razon_masas=1.98e5; 		// m_i/m_e (Plata)
-double	m_i=razon_masas*m_e;		// masa Ión
-double	flujo_inicial=4.5e33;		// Flujo inicial (# part/m^2*s)
-double	vflux_i[2]={1.e3,0.5e2};		// Velocidad de flujo iónico (m/s) = sqrt(2*k_b*Te/(M_PI*m_i))
-double	vflux_i_magnitud=sqrt(vflux_i[0]*vflux_i[0]+vflux_i[1]*vflux_i[1]);
-double	vflux_e[2]={sqrt(razon_masas)*vflux_i[0],sqrt(razon_masas)*vflux_i[1]};
-double	vflux_e_magnitud=sqrt(vflux_e[0]*vflux_e[0]+vflux_e[1]*vflux_e[1]);
-double	ni03D=flujo_inicial/vflux_i_magnitud;	// Concentración inicial de iones (3D)
-double	ne03D=flujo_inicial/vflux_e_magnitud;	// Concentración inicial de electrones (3D)
-double	Te=M_PI*0.5*m_e*pow(vflux_e_magnitud,2)/k_b;		// Temperatura electrónica inicial (°K)                    
+double  razon_masas=1.98e5;     // m_i/m_e (Plata)
+double  m_i=razon_masas*m_e;    // masa Ión
+double  flujo_inicial=4.5e33;   // Flujo inicial (# part/m^2*s)
+double  vflux_i[2]={1.e3,1e2};  // Componentes de Velocidad de flujo iónico
+double  vflux_i_magnitud=sqrt(vflux_i[0]*vflux_i[0]+vflux_i[1]*vflux_i[1]); // Velocidad de flujo iónico (m/s) = sqrt(2*k_b*Te/(M_PI*m_i))
+double  vflux_e[2]={sqrt(razon_masas)*vflux_i[0],sqrt(razon_masas)*vflux_i[1]};
+double  vflux_e_magnitud=sqrt(vflux_e[0]*vflux_e[0]+vflux_e[1]*vflux_e[1]);
+double  ni03D=flujo_inicial/vflux_i_magnitud; // Concentración inicial de iones (3D)
+double  ne03D=flujo_inicial/vflux_e_magnitud; // Concentración inicial de electrones (3D)
+double  Te=M_PI*0.5*m_e*pow(vflux_e_magnitud,2)/k_b;    // Temperatura electrónica inicial (°K)                    
                                                 // (vflujo=sqrt(2k_bTe/(pi*me))
 
-double	lambda_D=sqrt(epsilon_0*k_b*Te/(ne03D*pow(e,2)));  //Longitud de Debye
-double	om_p=vflux_e_magnitud/lambda_D;                    //Frecuencia del plasma
-double	ND=ne03D*pow(lambda_D,3);                          //Parámetro del plasma
-int 	  NTe=1e5, NTI=1e5;                                  //Número de partículas "reales"
+double  lambda_D=sqrt(epsilon_0*k_b*Te/(ne03D*pow(e,2)));  //Longitud de Debye
+double  om_p=vflux_e_magnitud/lambda_D;                    //Frecuencia del plasma
+double  ND=ne03D*pow(lambda_D,3);                          //Parámetro del plasma
+int     NTe=1e5, NTI=1e5;                                  //Número de partículas "reales"
 
 
 
@@ -76,9 +75,9 @@ int 	  NTe=1e5, NTI=1e5;                                  //Número de partícul
 //Constantes de normalización
 //***************************
 
-double	t0=1e-13;		          //Escala de tiempo: Tiempo de vaporización
-//double	x0=vflux_i[0]*t0;   //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
-double  x0=lambda_D;
+double  t0=1e-13;                   //Escala de tiempo: Tiempo de vaporización
+//double  x0=vflux_i_magnitud*t0;   //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
+double  x0=lambda_D;                //Escala de longitud: Longitud de Debye
 double  n0=double(NTe)/(x0*x0*x0);
 
 
@@ -89,31 +88,22 @@ double  n0=double(NTe)/(x0*x0*x0);
 double  delta_X=lambda_D;   //Paso espacial
 double  Lmax[2]={(J_X-1)*delta_X, (J_Y-1)*delta_X}; //Tamaño del espacio de simulación.
 int     Factor_carga_e=10, Factor_carga_i=10;       //Número de partículas por superpartícula.
-int 	  k_max_inj;   //Tiempo máximo de inyección
-int 	  K_total;     //Tiempo total
-int 	  Ntv=6;
-int 	  le=0, li=0,kt;
-int 	  NTSPe, NTSPI, max_SPe_dt, max_SPi_dt;
+int     k_max_inj;   //Tiempo máximo de inyección
+int     K_total;     //Tiempo total
+int     Ntv=6;
+int     le=0, li=0,kt;
+int     NTSPe, NTSPI, max_SPe_dt, max_SPi_dt;
 
 double  L_max[2],  T,dt,t_0, ne0_3D,ni0_3D,ni0_1D,ne0_1D, vphi_i[2],vphi_e[2], vphi_i_magnitud, vphi_e_magnitud ,fi_Maxwell[2],fe_Maxwell[2],vpart,x_0,phi_inic;
-double  Np_t, ni0_cell_1;
-
 double  cte_rho=pow(e*t0,2)/(m_i*epsilon_0*pow(x0,3)); //Normalización de epsilon_0
 double  phi0=2.*k_b*Te/(M_PI*e), E0=phi0/x0;
-double  cte_E=t0*e*E0/(vflux_i[0]*m_e),fact_el=-1, fact_i=1./razon_masas;
-//double  cte_E=x0*m_i/(e*t0),fact_el=-1, fact_i=1./razon_masas;
-double  Ek_i,Ek_e,E_field,E_total, E_perdida;
-double  Et0=k_b*Te;
+double  cte_E=t0*e*E0/(vflux_i_magnitud*m_e),fact_el=-1, fact_i=1./razon_masas;
 
-
-double  vxe_perd[max_SPe];
-int     perdidas[max_SPe];  
-int     perd=0;
 int     total_e_perdidos=0;
 int     total_i_perdidos=0;
 double  mv2perdidas=0;
-FILE    *outPot19,*outEnergia, *outPot0_6, *outPot0_9, *outPot1_5, *outPot3_5, *outPot5_5, *outPot15;
 
+FILE    *outPot19,*outEnergia, *outPot0_6, *outPot0_9, *outPot1_5, *outPot3_5, *outPot5_5, *outPot15;
 FILE    *outFase_ele[61];
 FILE    *outFase_ion[61];
 
@@ -172,48 +162,50 @@ int main()
 
   //printf("dt/t0=%e    \ndt/T=%e   \nhx/lambda_D=%e \nTiempo vapor.=%d dt \n",dt/t_0,dt/T,hx/(lambda_D/x0), k_max_inj);
 
+  //****************************************
+  // Inicialización de variables del sistema
+  //****************************************
+
+  double  pos_e[max_SPe][2],pos_i[max_SPi][2];  //Vectores de Posición, 0:X 1:Y.
+  double  vel_e[max_SPe][2], vel_i[max_SPi][2]; //Vectores de Velocidad, 0:X 1:Y.
+  double  ne[J_X][J_Y],ni[J_X][J_Y];            //Densidad de partículas en puntos de malla.
+  complex <double> rho[J_X][J_Y];               //Densidad de carga en los puntos de malla.
+  double phi[J_X][J_Y], E_X[J_X][J_Y], E_Y[J_X][J_Y];
+  double E_i,E_e,E_field,E_total,E_perdida;
+
+
   //***************************
   // Normalización de variables
   //***************************
 
   L_max[0]=Lmax[0]/x0;                      // Longitud región de simulación
   L_max[1]=Lmax[1]/x0;                      // Longitud región de simulación
-  hx=delta_X/x0;
-  //T=Periodo_pe/t0;                       // Periodo pionico normalizado resp.
-  //dt=T/(nptp-1);                         // Paso temporal
-  //dt=0.05*(1/om_p)/t0;
-  t_0=1.;                             // tiempo de vaporación
-  double n_0=n0*x0*x0*x0;             
-  dt=1.e-5;
-  ni0_3D=ni03D*pow(x0,3);                // Concentración de iones inicial 3D 
-  ne0_3D=ne03D*pow(x0,3);                // Concentración de electrones inicial 3D
-  vphi_i[0]=vflux_i[0]/vflux_i[0];
-  vphi_e[0]=vflux_e[0]/vflux_i[0];
-  vphi_i[1]=vflux_i[1]/vflux_i[0];
-  vphi_e[1]=vflux_e[1]/vflux_i[0];
-  fi_Maxwell[0]=  (2./(M_PI*vphi_i[0])); // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
-  fe_Maxwell[0]=  (2./(M_PI*vphi_e[0])); // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
-  fi_Maxwell[1]=  (1./(M_PI*vphi_i[1])); // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
-  fe_Maxwell[1]=  (1./(M_PI*vphi_e[1])); // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
-  //x_0=vphi_i[0]*t_0;
+  t_0=1;
+  x_0=1;
+  hx=delta_X/x0;                            // Paso espacial
+  double n_0=n0*x0*x0*x0;                   // Densidad de partículas
+  dt=1.e-5;                                 // Paso temporal
+  ni0_3D=ni03D*pow(x0,3);                   // Concentración de iones inicial 3D 
+  ne0_3D=ne03D*pow(x0,3);                   // Concentración de electrones inicial 3D
+  vphi_i[0]=vflux_i[0]/vflux_i_magnitud;    // Velocidad térmica Iónica (X)
+  vphi_e[0]=vflux_e[0]/vflux_i_magnitud;    // Velocidad térmica Electrónica (X)
+  vphi_i[1]=vflux_i[1]/vflux_i_magnitud;    // Velocidad térmica Iónica (Y)
+  vphi_e[1]=vflux_e[1]/vflux_i_magnitud;    // Velocidad térmica Electrónica (Y)
+  fi_Maxwell[X]=  (2./(M_PI*vphi_i[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica (X)
+  fe_Maxwell[X]=  (2./(M_PI*vphi_e[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
+  fi_Maxwell[Y]=  (1./(M_PI*vphi_i[Y]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
+  fe_Maxwell[Y]=  (1./(M_PI*vphi_e[Y]));    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
   NTSPe=NTe/Factor_carga_e, NTSPI=NTI/Factor_carga_i; // Número total de superpartículas
                                                       // Inyectadas en un tiempo t0.
                                                       // (= número de superpartículas
                                                       // Inyectadas por unidad de tiempo,  
                                                       // puesto que t0*(normalizado)=1.
 
-  //double Ef0=(phi0*n0);
-
-  //double Ek0_i=0.5*(pow(vphi_i_magnitud,2)); //energia cinetica ionica inicial
-  //double Ek0_e=0.5*(pow(vphi_e_magnitud,2)); //energia cinetica electronica inicial
-  double E_i,E_e,E_field,E_total, vi_cm,ve_cm;
 
   printf("x0^3=%e \nn0i=%e \nlambda/hx=%e \nTemp = %e\n", x0*x0*x0, ni03D, lambda_D/hx,Te);
   //printf("dt=%e \nmax_SPe_dt=%d  \n",dt_emision/t_0,max_SPi_dt);
   //printf("Energia=%e \n",Et0);
-
-                      
-  //k_max_inj=t_0/dt;               
+                                     
   int Kemision=10;
   double dt_emision=Kemision*dt;
 
@@ -233,7 +225,6 @@ int main()
   clock_t tiempo0 = clock();
   for (kt=0;kt<=K_total;kt++)
   {
-
     if (kt%10000==0)
     {
       printf("kt=%d\n",kt);
@@ -242,12 +233,12 @@ int main()
 
     if(kt<=k_max_inj && kt==kk)                   // Inyectar superpartículas (i-e)
     {        
-      Cond_inic ();      // Definir posiciones y velocidades iniciales de los electrones e Iones durante el tiempo de inyección
+      inject_Particles (pos_e,vel_e,pos_i, vel_i);      // Definir posiciones y velocidades iniciales de los electrones e Iones durante el tiempo de inyección
       kk=kk+Kemision;  
     }
 
-          //-----------------------------------------------
-          // Calculo de "densidad de carga 2D del plasma"
+    //-----------------------------------------------
+    // Calculo de "densidad de carga 2D del plasma"
 
     Concentration (pos_e,ne,le);           // Calcular concentración de superpartículas electrónicas
     Concentration (pos_i,ni,li);           // Calcular concentración de superpartículas Iónicas
@@ -262,18 +253,18 @@ int main()
     }
 
     // Calcular potencial eléctrico en puntos de malla
-    Poisson2D_DirichletX_PeriodicY(phi,rho);
+    Poisson2D_DirichletX_DirichletY(phi,rho);
 
     // Calcular campo eléctrico en puntos de malla
     Electric_Field(phi,E_X, E_Y);
 
     // Avanzar posiciones de superpartículas electrónicas e Iónicas 
-    Motion(pos_e,vel_e,le,electrones);           // Calcular nuevas posiciones de SP electrónicas
-    Motion(pos_i,vel_i,li,Iones);                // Calcular nuevas posiciones de SP Iónicas
+    Motion(pos_e,vel_e,le,electrones, E_X, E_Y);
+    Motion(pos_i,vel_i,li,Iones, E_X, E_Y);
    
     //Cálculo de energías.
 
-    if(kt%2000==0&&kt>0)// && kt > 0*k_max_inj)
+    if(kt%2000==0&&kt>0)
       { 
           E_i=0; //Se inicializan las variables de la energía
           E_e=0;    
@@ -301,37 +292,16 @@ int main()
             }
           }
 
-        
           E_field = 2*E_field /(M_PI);  
-          
-          //energia total del sistema
-          E_total = E_field + E_i + E_e;
 
-          //evolución temporal del centro de masa electrónico.
-          ve_cm = vi_cm = 0; 
-          /*for(int s=0; s<le;s++)
-          {  
-            ve_cm += sqrt(vel_e[s][0]*vel_e[s][0]+vel_e[s][1]*vel_e[s][1]); 
-            vi_cm += sqrt(vel_i[s][0]*vel_i[s][0]+vel_i[s][1]*vel_i[s][1]); 
-          }*/
-           
-          ve_cm = ve_cm /le; 
-          vi_cm = vi_cm/li;
+          E_total = E_field + E_i + E_e;           
 
           //Energia perdida por partícula pérdida
-          for (int q =0; q<perd;q++)
-            E_perdida =  E_perdida + pow(vxe_perd[q],2)/(M_PI*razon_masas);
+          E_perdida =  mv2perdidas;
 
-            //E_perdida = E_perdida/perd; 
-          
-          //if(kt != 0)
+          fprintf(outEnergia,"%e %e %e %e %e  %e  %e %d  %e \n", kt*dt, E_total, E_i,E_e,E_field, total_e_perdidos+total_i_perdidos, E_perdida );       
+      }//Cierre de calculo de energia
 
-          //clock_t tiempo1 = clock();
-          fprintf(outEnergia,"%e %e %e %e %e  %e  %e %d  %e \n", kt*dt, E_total, E_i,E_e,E_field, ve_cm, vi_cm, total_e_perdidos, E_perdida );
-          //printf("Out Energia\n");
-          
-          //cout << " CPU time Full = " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC<< " sec" << endl;          
-      }//cierre de calculo de energia
       clock_t tiempo1 = clock();
       if(kt%1000==0)
       {
@@ -357,11 +327,46 @@ int main()
     {
       Funcion_Distribucion(pos_e,vel_e,le, (char *)"fdist-ele15x",  (char *)"fdist-ele15y");
       Funcion_Distribucion(pos_i,vel_i,li, (char *)"fdist-ion15x",  (char *)"fdist-ion15y");
+    }
+
+    if(kt==200000)
+    {
+      Funcion_Distribucion(pos_e,vel_e,le, (char *)"fdist-ele20x",  (char *)"fdist-ele20y");
+      Funcion_Distribucion(pos_i,vel_i,li, (char *)"fdist-ion20x",  (char *)"fdist-ion20y");
     } 
 
-  }
+    if(kt==250000)
+    {
+      Funcion_Distribucion(pos_e,vel_e,le, (char *)"fdist-ele25x",  (char *)"fdist-ele25y");
+      Funcion_Distribucion(pos_i,vel_i,li, (char *)"fdist-ion25x",  (char *)"fdist-ion25y");
+    } 
 
-   
+    if(kt==300000)
+    {
+      Funcion_Distribucion(pos_e,vel_e,le, (char *)"fdist-ele30x",  (char *)"fdist-ele30y");
+      Funcion_Distribucion(pos_i,vel_i,li, (char *)"fdist-ion30x",  (char *)"fdist-ion30y");
+    } 
+
+    if(kt==350000)
+    {
+      Funcion_Distribucion(pos_e,vel_e,le, (char *)"fdist-ele35x",  (char *)"fdist-ele35y");
+      Funcion_Distribucion(pos_i,vel_i,li, (char *)"fdist-ion35x",  (char *)"fdist-ion35y");
+    }
+
+    if(kt==4500000)
+    {
+      Funcion_Distribucion(pos_e,vel_e,le, (char *)"fdist-ele45x",  (char *)"fdist-ele45y");
+      Funcion_Distribucion(pos_i,vel_i,li, (char *)"fdist-ion45x",  (char *)"fdist-ion45y");
+    } 
+
+    if(kt==550000)
+    {
+      Funcion_Distribucion(pos_e,vel_e,le, (char *)"fdist-ele55x",  (char *)"fdist-ele55y");
+      Funcion_Distribucion(pos_i,vel_i,li, (char *)"fdist-ion55x",  (char *)"fdist-ion55y");
+    } 
+
+  } //Cierre del ciclo principal
+
   fclose(outEnergia);
   fclose(outPot0_6);
   fclose(outPot0_9);
@@ -379,16 +384,18 @@ int main()
   return (0);
 }// FINAL MAIN
 
-// Función de Inyección de partículas
+//**********************************
+//Función de Inyección de partículas
+//**********************************
 
-void Cond_inic (void) 
+void inject_Particles (double pos_e[max_SPe][2], double vel_e[max_SPe][2], double pos_i[max_SPi][2], double vel_i[max_SPi][2]) 
 {  
    for (int i=0;i<max_SPe_dt;i++)
    {
      pos_e[i+le][0]=0.0; 
-     vel_e[i+le][0]= distrib_vel_X (fe_Maxwell[0],vphi_e[0]);
+     vel_e[i+le][0]= create_Velocities_X (fe_Maxwell[0],vphi_e[0]);
      pos_e[i+le][1]=L_max[1]/2.0;
-     vel_e[i+le][1]=distrib_vel_Y(fe_Maxwell[1],vphi_e[1]);
+     vel_e[i+le][1]=create_Velocities_Y(fe_Maxwell[1],vphi_e[1]);
    }
  
    le=le+max_SPe_dt;
@@ -396,15 +403,19 @@ void Cond_inic (void)
    for (int i=0;i<max_SPi_dt;i++)
    {
      pos_i[i+li][0]=0.0; 
-     vel_i[i+li][0]=distrib_vel_X (fi_Maxwell[0],vphi_i[0]);
+     vel_i[i+li][0]=create_Velocities_X (fi_Maxwell[0],vphi_i[0]);
      pos_i[i+li][1]=L_max[1]/2.0;
-     vel_i[i+li][1]=distrib_vel_Y (fi_Maxwell[1],vphi_i[1]);
+     vel_i[i+li][1]=create_Velocities_Y (fi_Maxwell[1],vphi_i[1]);
    }
  
    li=li+max_SPi_dt;
 }
 
-double distrib_vel_X(double fmax,double vphi) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
+//*********************
+//Velocidades Iniciales
+//*********************
+
+double create_Velocities_X(double fmax,double vphi) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
                                              // (Ver pág. 291 Computational Physics Fitzpatrick: Distribution functions--> Rejection Method)
 { 
                                           
@@ -432,11 +443,11 @@ double distrib_vel_X(double fmax,double vphi) // función para generar distribuc
 
   f_random = fmax*double(rand())/double(RAND_MAX);    // Calcular valor aleatorio de f uniformemente distribuido en el rango [0,fmax]
 
-  if (f_random > f) return distrib_vel_X(fmax,vphi);
+  if (f_random > f) return create_Velocities_X(fmax,vphi);
   else return  v;
 }
 
-double distrib_vel_Y(double fmax,double vphi) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
+double create_Velocities_Y(double fmax,double vphi) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
                                              // (Ver pág. 291 Computational Physics Fitzpatrick: Distribution functions--> Rejection Method)
 {                                            
   double sigma=vphi;                           // sigma=vflujo=vth    ( "dispersión" de la distribución Maxweliana)
@@ -464,18 +475,21 @@ double distrib_vel_Y(double fmax,double vphi) // función para generar distribuc
 
   f_random = fmax*double(rand())/double(RAND_MAX);    // Calcular valor aleatorio de f uniformemente distribuido en el rango [0,fmax]
 
-  if (f_random > f) return distrib_vel_Y(fmax,vphi);
+  if (f_random > f) return create_Velocities_Y(fmax,vphi);
   else return  v;
 }
 
-double distrib_vel_Y_temp(double fmax,double vphi, int distemp) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
+double create_Velocities_Y_temp(double fmax,double vphi, int distemp) // función para generar distribución semi-maxwelliana de velocidades de las particulas 
                                              // (Ver pág. 291 Computational Physics Fitzpatrick: Distribution functions--> Rejection Method)
 {                                             
 double v=2*vphi*pow(-1,distemp);
 return v;
 }
 
-//**********************************************************************************************
+//**************************************************************************************
+//Determinación del aporte de carga de cada superpartícula sobre las 4 celdas adyacentes
+//**************************************************************************************
+
 void Concentration (double pos[max_SPe][2], double n[J_X][J_Y],int NSP)
 { 
   int j_x,j_y;
@@ -505,7 +519,9 @@ void Concentration (double pos[max_SPe][2], double n[J_X][J_Y],int NSP)
     }
 }
 
-//***************************************************
+//***********************************************************************
+//Cálculo del Potencial Electrostático en cada uno de los puntos de malla
+//***********************************************************************
 
 void Poisson2D_DirichletX_PeriodicY(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y])
 {
@@ -611,6 +627,126 @@ void Poisson2D_DirichletX_PeriodicY(double phi[J_X][J_Y],complex <double> rho[J_
     fftw_destroy_plan(p_yi);
     free(f); fftw_free(f2);
 }
+
+//****************
+//Pruebas referentes al potencial periódico.
+
+void Poisson2D_DirichletX_PeriodicYb(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y])
+{
+    int M=J_X,N=J_Y;
+    double h = hx;
+    double hy = hx;
+    double *f1, *f1out, *f1i,*f1i_out;
+    fftw_complex *f2,*f2out, *f2i,*f2i_out;
+    fftw_plan p,p_y,p_i,p_yi;
+    f1= (double*) malloc(sizeof(double)* 2*(M+1));
+    f1out= (double*) malloc(sizeof(double)* 2*(M+1));
+    f1i= (double*) malloc(sizeof(double)* 2*(M+1));
+    f1i_out= (double*) malloc(sizeof(double)* 2*(M+1));    
+    f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) *N);
+    f2out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) *N);
+    f2i = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) *N);
+    f2i_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) *N);
+
+    p = fftw_plan_r2r_1d(M, f1, f1out, FFTW_RODFT00, FFTW_ESTIMATE);
+    p_y = fftw_plan_dft_1d(N, f2, f2out, FFTW_FORWARD, FFTW_ESTIMATE);    
+    p_i = fftw_plan_r2r_1d(M, f1i, f1i_out, FFTW_RODFT00, FFTW_ESTIMATE);
+    p_yi = fftw_plan_dft_1d(N, f2i, f2i_out, FFTW_BACKWARD, FFTW_ESTIMATE);
+
+    // Llenado de Filas FFT
+    for (int j = 0; j < M; j++) {
+        for (int k = 0; k < N; k++)
+            memcpy( &f2[k], &rho[j][k], sizeof( fftw_complex ) ); 
+        fftw_execute(p_y);
+        for (int k = 0; k < N; k++)
+            memcpy( &rho[j][k], &f2out[k], sizeof( fftw_complex ) );
+    }
+    // Llenado de Columnas FFT
+    for (int k = 0; k < N; k++) {
+        for (int j = 0; j < M; j++)
+            f1[j]=rho[j][k].real();
+        fftw_execute(p);
+        for (int j = 0; j < M; j++)
+            rho[j][k].real()=f1out[j];
+    }
+
+    complex<double> i(0.0, 1.0);
+    double pi = M_PI;
+    complex<double> Wy = exp(2.0 * pi * i / double(N));
+    complex<double> Wn = 1.0;
+    for (int m = 0; m < M; m++) 
+    {
+        for (int n = 0; n < N; n++)
+         {
+            complex<double> denom = h*h*2.0+hy*hy*2.0;;
+            denom -= hy*hy*(2.*cos((m+1)*pi/(M+1))) + h*h*(Wn + 1.0 / Wn);
+            if (denom != 0.0)
+                    rho[m][n] *= h*h*hy*hy / denom;
+            Wn *= Wy;
+        }
+    }
+
+    // Inversa de las filas
+    for (int j = 0; j < M; j++)
+    {
+        for (int k = 0; k < N; k++)
+            memcpy( &f2i[k], &rho[j][k], sizeof( fftw_complex ) );
+        fftw_execute(p_yi);
+        for (int k = 0; k < N; k++)
+        {
+            memcpy( &rho[j][k], &f2i_out[k], sizeof( fftw_complex ) );
+            rho[j][k] /= double(N); //Normalización por DFT inversa.
+        }
+    }
+    // Inversa de las columnas
+    for (int k = 0; k < N; k++) 
+    {
+
+        for (int j = 0; j < M; j++)
+            memcpy( &f1i[j], &rho[j][k], sizeof( fftw_complex ) );
+        fftw_execute(p_i);
+        for (int j = 0; j < M; j++)
+        {
+            phi[j][k]=f1i_out[j]/double(2*(M+1)); //Salida de Potencial a la matriz Phi, Normalización por DST.
+        }
+
+    }
+
+    for (int k = 0; k < N; k++) 
+    {
+      phi[0][k]=0;
+      phi[M-1][k]=0;
+    }
+
+
+    if(kt%10000==0)
+    {
+  
+      // Escribir a archivo
+      cout << " Potential in file PoissonFFTW3.data" << endl;
+      ofstream dataFile("PoissonFFTW3.data");
+      for (int j = 0; j < M; j++) {
+          double thisx = j * h;
+          for (int k = 0; k < N; k++) {
+              double thisy = k * hy;
+              dataFile << thisx << '\t' << thisy << '\t' << phi[j][k] << '\n';
+          }
+          dataFile << '\n';
+      }
+      dataFile.close();
+    }
+    fftw_destroy_plan(p);
+    fftw_destroy_plan(p_i);
+    fftw_destroy_plan(p_y);
+    fftw_destroy_plan(p_yi);
+    free(f1); fftw_free(f2);
+    free(f1out); fftw_free(f2out);
+    free(f1i); fftw_free(f2i);
+    free(f1i_out); fftw_free(f2i_out);
+}
+
+
+
 
 void Poisson2D_DirichletX_DirichletY(double phi[J_X][J_Y],complex <double> rho[J_X][J_Y])
 {
@@ -740,13 +876,12 @@ void Electric_Field (double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X]
 }
 
 
-void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie)
+void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y])
 {
    int j_x,j_y;
    double temp_x,temp_y,Ep_X, Ep_Y,fact;
-   float jr_x,jr_y;
+   double jr_x,jr_y;
    int kk1=0;
-   int ind;
    int conteo_perdidas=0;
    
    if(especie==electrones)
@@ -759,10 +894,10 @@ void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int espe
     {
        jr_x=pos[i][X]/hx;     // Índice (real) de la posición de la superpartícula (X)
        j_x =int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
-       temp_x = jr_x-j_x;
+       temp_x = jr_x-double(j_x);
        jr_y=pos[i][Y]/hx;     // Índice (real) de la posición de la superpartícula (Y)
        j_y =int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
-       temp_y = jr_y-j_y;
+       temp_y = jr_y-double(j_y);
 
 
        Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x][j_y]+temp_x*(1-temp_y)*E_X[j_x+1][j_y]+(1-temp_x)*temp_y*E_X[j_x][j_y+1]+temp_x*temp_y*E_X[j_x+1][j_y+1];
@@ -780,7 +915,7 @@ void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int espe
           vel[i][X]=-vel[i][X];
        }
 
-       if (pos[i][X]>L_max[X]) //Partícula fuera del espacio de Simulación
+       if (pos[i][X]>=L_max[X]) //Partícula fuera del espacio de Simulación
        {    
             conteo_perdidas++;
             if(especie==electrones)
@@ -793,31 +928,8 @@ void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int espe
             {
               total_i_perdidos++;
               printf("Ion perdido No. %d,  i=%d, kt=%d \n",total_i_perdidos, i ,kt);
-              mv2perdidas+=pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2);
+              mv2perdidas+=pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2)/(razon_masas);
             }
-            /*
-            ind = 0;
-            cont_per = 0;
-            if(perd==0)
-            {
-                perdidas[perd]=i;
-                vxe_perd[perd] = sqrt(vel[i][0]*vel[i][0]+vel[i][1]*vel[i][1]);
-                perd++;
-            }
-            for(int k=0; k<perd; k++)
-            {
-                if(perdidas[k] != i ) 
-                cont_per ++; 
-            }
-                 
-            if(cont_per==perd) 
-            { 
-                perdidas[perd]=i; 
-                vxe_perd[perd] = sqrt(vel[i][0]*vel[i][0]+vel[i][1]*vel[i][1]);
-                perd ++;
-                printf("Particula perdida= %d, especie=%d,  i=%d, kt=%d \n", perd, especie, i ,kt);
-          } */
-         
        }
 
 
@@ -919,64 +1031,49 @@ void Funcion_Distribucion(double pos[max_SPe][2], double vel[max_SPe][2] , int N
 /*
 void  update_Positions(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie)
 {
-  for(int i=0;i<NSP;i++)
-  {
-    pos[i][X]=pos[i][X]+vel[i][X]*dt;
-    pos[i][Y]=pos[i][Y]+vel[i][Y]*dt;
+   int kk1=0;
+   int conteo_perdidas=0;
 
+   for (int i=0;i<NSP;i++)
+    {
+      pos[i][X]=pos[i][X]+vel[i][X]*dt;
+      pos[i][Y]=pos[i][Y]+vel[i][Y]*dt;
 
-    if(pos[i][X]<0) //Rebote en la pared del material.
+      if(pos[i][X]<0) //Rebote en la pared del material.
        {
           pos[i][X]=-pos[i][X];
           vel[i][X]=-vel[i][X];
        }
 
-    if (pos[i][X]>L_max[X]) //Partícula fuera del espacio de Simulación
-       {  
+      if (pos[i][X]>=L_max[X]) //Partícula fuera del espacio de Simulación
+       {    
+            conteo_perdidas++;
             if(especie==electrones)
-              le=le-1;
+            {
+              total_e_perdidos++;
+              printf("Electron perdido No. %d,  i=%d, kt=%d \n",total_e_perdidos, i ,kt);
+              mv2perdidas+=pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2);
+            }
             else
-              li=li-1;
-
-            ind = 0;
-            cont_per = 0;
-            if(perd==0)
             {
-                perdidas[perd]=i;
-                vxe_perd[perd] = sqrt(vel[i][0]*vel[i][0]+vel[i][1]*vel[i][1]);
-                perd++;
+              total_i_perdidos++;
+              printf("Ion perdido No. %d,  i=%d, kt=%d \n",total_i_perdidos, i ,kt);
+              mv2perdidas+=pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2)/(razon_masas);
             }
-            for(int k=0; k<perd; k++)
-            {
-                if(perdidas[k] != i ) 
-                cont_per ++; 
-            }
-                 
-            if(cont_per==perd) 
-            { 
-                perdidas[perd]=i; 
-                vxe_perd[perd] = sqrt(vel[i][0]*vel[i][0]+vel[i][1]*vel[i][1]);
-                perd ++;
-                printf("Particula perdida= %d, especie=%d,  i=%d, kt=%d \n", perd, especie, i ,kt);
-          } 
-         
        }
 
-
-    while(pos[i][1]>L_max[1]) //Ciclo en el eje Y.
+      while(pos[i][Y]>=L_max[Y]) //Ciclo en el eje Y.
        {
-          pos[i][1]=pos[i][1]-L_max[1];
+          pos[i][Y]=pos[i][Y]-L_max[Y];
        }
 
-    while(pos[i][1]<0) //Ciclo en el eje Y.
+       while(pos[i][Y]<0.0) //Ciclo en el eje Y.
        {
 
-          pos[i][1]=L_max[1]+pos[i][1];
+          pos[i][Y]=L_max[Y]+pos[i][Y];
        }
 
-
-
-    if(pos[i][X]>=0 && pos[i][X]<=L_max[0])
+      if(pos[i][X]>=0 && pos[i][X]<=L_max[X])
         {
             kk1=kk1+1;
             pos[kk1-1][X]=pos[i][X]; 
@@ -985,26 +1082,59 @@ void  update_Positions(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP
             vel[kk1-1][Y]=vel[i][Y];
         }
 
-  }
+      //Salida espacio de Fase
 
+      if(kt%10000==0&&especie==electrones)
+          {
+              fprintf(outFase_ele[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
+              //printf("Fase out\n");
+          }
 
+      if(kt%10000==0&&especie==Iones)
+          {
+              fprintf(outFase_ion[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
+          }
+
+    }
+
+    if(especie==electrones)
+    {
+      le=le-conteo_perdidas;
+    }
+    else
+    {
+      li=li-conteo_perdidas;
+    }
 }
 
-void  update_Velocities(double vel[max_SPe][2],  E[J_X][J_Y], int especie)
+void  update_Velocities(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y])
 {
-  if(especie==electrones)
+   int j_x,j_y;
+   double temp_x,temp_y,Ep_X, Ep_Y,fact;
+   double jr_x,jr_y;
+   int kk1=0;
+   int conteo_perdidas=0;
+   
+   if(especie==electrones)
     fact=fact_el;                    
     
-  if(especie==Iones)
+   if(especie==Iones)
     fact=fact_i;
+    
+   for (int i=0;i<NSP;i++)
+    {
+       jr_x=pos[i][X]/hx;         // Índice (real) de la posición de la superpartícula (X)
+       j_x =int(jr_x);            // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+       temp_x = jr_x-double(j_x);
+       jr_y=pos[i][Y]/hx;         // Índice (real) de la posición de la superpartícula (Y)
+       j_y =int(jr_y);            // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+       temp_y = jr_y-double(j_y);
 
-  Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x][j_y]+temp_x*(1-temp_y)*E_X[j_x+1][j_y]+(1-temp_x)*temp_y*E_X[j_x][j_y+1]+temp_x*temp_y*E_X[j_x+1][j_y+1];
-  Ep_Y=(1-temp_x)*(1-temp_y)*E_Y[j_x][j_y]+temp_x*(1-temp_y)*E_Y[j_x+1][j_y]+(1-temp_x)*temp_y*E_Y[j_x][j_y+1]+temp_x*temp_y*E_Y[j_x+1][j_y+1];
-
-  vel[i][X]=vel[i][X]+cte_E*Factor_carga_e*fact*Ep_X*dt;
-  vel[i][Y]=vel[i][Y]+cte_E*Factor_carga_e*fact*Ep_Y*dt;
-
-
+       Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x][j_y]+temp_x*(1-temp_y)*E_X[j_x+1][j_y]+(1-temp_x)*temp_y*E_X[j_x][j_y+1]+temp_x*temp_y*E_X[j_x+1][j_y+1];
+       Ep_Y=(1-temp_x)*(1-temp_y)*E_Y[j_x][j_y]+temp_x*(1-temp_y)*E_Y[j_x+1][j_y]+(1-temp_x)*temp_y*E_Y[j_x][j_y+1]+temp_x*temp_y*E_Y[j_x+1][j_y+1];
+       vel[i][X]=vel[i][X]+cte_E*Factor_carga_e*fact*Ep_X*dt;
+       vel[i][Y]=vel[i][Y]+cte_E*Factor_carga_e*fact*Ep_Y*dt;
+    }
 }
 */
 
