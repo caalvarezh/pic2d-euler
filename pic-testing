@@ -19,8 +19,8 @@
 
 #define max_SPe     10000           // Limite (computacional) de Superpartículas electrónicas
 #define max_SPi     10000           // Limite (computacional) de Superpartículas iónicas
-#define J_X         512            // Número de puntos de malla X. Recomendado: Del orden 2^n-1
-#define J_Y         8           // Número de puntos de malla Y. Recomendado: Del orden 2^n-1
+#define J_X         15            // Número de puntos de malla X. Recomendado: Del orden 2^n-1
+#define J_Y         16           // Número de puntos de malla Y. Recomendado: Del orden 2^n-1
 
 using namespace std;
 
@@ -71,14 +71,14 @@ double  om_p=vflux_e_magnitud/lambda_D;                    //Frecuencia del plas
 double  ND=ne03D*pow(lambda_D,3);                          //Parámetro del plasma
 int     NTe=1e5, NTI=1e5;                                  //Número de partículas "reales"
 
-/*
+
   double  pos_e[max_SPe][2],pos_i[max_SPi][2];  //Vectores de Posición, 0:X 1:Y.
   double  vel_e[max_SPe][2], vel_i[max_SPi][2]; //Vectores de Velocidad, 0:X 1:Y.
   double  ne[J_X][J_Y],ni[J_X][J_Y];            //Densidad de partículas en puntos de malla.
   complex <double> rho[J_X][J_Y];               //Densidad de carga en los puntos de malla.
   double phi[J_X][J_Y], E_X[J_X][J_Y], E_Y[J_X][J_Y];
   double E_i,E_e,E_field,E_total,E_perdida;
-*/
+
 
 //***************************
 //Constantes de normalización
@@ -174,14 +174,14 @@ int main()
   //****************************************
   // Inicialización de variables del sistema
   //****************************************
-
+/*
   double  pos_e[max_SPe][2],pos_i[max_SPi][2];  //Vectores de Posición, 0:X 1:Y.
   double  vel_e[max_SPe][2], vel_i[max_SPi][2]; //Vectores de Velocidad, 0:X 1:Y.
   double  ne[J_X][J_Y],ni[J_X][J_Y];            //Densidad de partículas en puntos de malla.
   complex <double> rho[J_X][J_Y];               //Densidad de carga en los puntos de malla.
   double phi[J_X][J_Y], E_X[J_X][J_Y], E_Y[J_X][J_Y];
   double E_i,E_e,E_field,E_total,E_perdida;
-
+*/
 
   //***************************
   // Normalización de variables
@@ -216,7 +216,7 @@ int main()
   //printf("dt=%e \nmax_SPe_dt=%d  \n",dt_emision/t_0,max_SPi_dt);
   //printf("Energia=%e \n",Et0);
                                      
-  int Kemision=10;
+  int Kemision=20;
   double dt_emision=Kemision*dt;
 
   max_SPe_dt=NTSPe*dt_emision;       
@@ -231,7 +231,7 @@ int main()
 
   int kk=0;
 
-
+  inject_Particles (pos_e,vel_e,pos_i, vel_i);
   clock_t tiempo0 = clock();
   for (kt=0;kt<=K_total;kt++)
   {
@@ -243,7 +243,9 @@ int main()
 
     if(kt<=k_max_inj && kt==kk)                   // Inyectar superpartículas (i-e)
     {        
-      inject_Particles (pos_e,vel_e,pos_i, vel_i);      // Definir posiciones y velocidades iniciales de los electrones e Iones durante el tiempo de inyección
+      //inject_Particles (pos_e,vel_e,pos_i, vel_i);      // Definir posiciones y velocidades iniciales de los electrones e Iones durante el tiempo de inyección
+      le+=max_SPe_dt;
+      li+=max_SPi_dt;
       kk=kk+Kemision;  
     }
 
@@ -294,7 +296,7 @@ int main()
 
           //Energía del campo
 
-          for (int r=0;r<J_X;r++)
+          for (int r=0;r<J_X;r++) 
           {
             for(int ry=0;ry<J_Y;ry++)
             {
@@ -309,7 +311,7 @@ int main()
           //Energia perdida por partícula pérdida
           E_perdida =  mv2perdidas;
 
-          fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt*dt, E_total, E_i,E_e,E_field, total_e_perdidos+total_i_perdidos, E_perdida );       
+          fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt*dt, E_total, E_i, E_e, E_field, total_e_perdidos+total_i_perdidos, E_perdida );       
       }//Cierre de calculo de energia
 
       clock_t tiempo1 = clock();
@@ -400,6 +402,22 @@ int main()
 
 void inject_Particles (double pos_e[max_SPe][2], double vel_e[max_SPe][2], double pos_i[max_SPi][2], double vel_i[max_SPi][2]) 
 {  
+   for (int i=0;i<max_SPe;i++)
+   {
+     pos_e[i+le][0]=0; 
+     vel_e[i+le][0]= create_Velocities_X (fe_Maxwell[0],vphi_e[0]);
+     pos_e[i+le][1]=L_max[1]/2.0;
+     vel_e[i+le][1]=create_Velocities_Y(fe_Maxwell[1],vphi_e[1]);
+     pos_i[i+li][0]=0; 
+     vel_i[i+li][0]=create_Velocities_X (fi_Maxwell[0],vphi_i[0]);
+     pos_i[i+li][1]=L_max[1]/2.0;
+     vel_i[i+li][1]=create_Velocities_Y (fi_Maxwell[1],vphi_i[1]);
+   }
+}
+
+/*
+void inject_Particles (double pos_e[max_SPe][2], double vel_e[max_SPe][2], double pos_i[max_SPi][2], double vel_i[max_SPi][2]) 
+{  
    for (int i=0;i<max_SPe_dt;i++)
    {
      pos_e[i+le][0]=0; 
@@ -420,7 +438,7 @@ void inject_Particles (double pos_e[max_SPe][2], double vel_e[max_SPe][2], doubl
  
    li=li+max_SPi_dt;
 }
-
+*/
 //*********************
 //Velocidades Iniciales
 //*********************
