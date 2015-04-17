@@ -20,7 +20,7 @@
 #define max_SPe     10000           // Limite (computacional) de Superpartículas electrónicas
 #define max_SPi     10000           // Limite (computacional) de Superpartículas iónicas
 #define J_X         512            // Número de puntos de malla X. Recomendado: Del orden 2^n-1
-#define J_Y         16            // Número de puntos de malla Y. Recomendado: Del orden 2^n-1
+#define J_Y         8           // Número de puntos de malla Y. Recomendado: Del orden 2^n-1
 
 using namespace std;
 
@@ -187,19 +187,20 @@ int main()
   // Normalización de variables
   //***************************
 
-  L_max[0]=Lmax[0]/x0;                      // Longitud región de simulación
-  L_max[1]=Lmax[1]/x0;                      // Longitud región de simulación
+  L_max[X]=Lmax[X]/x0;                      // Longitud región de simulación
+  L_max[Y]=Lmax[Y]/x0;                      // Longitud región de simulación
   t_0=1;
   x_0=1;
   hx=delta_X/x0;                            // Paso espacial
   double n_0=n0*x0*x0*x0;                   // Densidad de partículas
+  //n_0=1e4;
   dt=1.e-5;                                 // Paso temporal
   ni0_3D=ni03D*pow(x0,3);                   // Concentración de iones inicial 3D 
   ne0_3D=ne03D*pow(x0,3);                   // Concentración de electrones inicial 3D
-  vphi_i[0]=vflux_i[0]/vflux_i_magnitud;    // Velocidad térmica Iónica (X)
-  vphi_e[0]=vflux_e[0]/vflux_i_magnitud;    // Velocidad térmica Electrónica (X)
-  vphi_i[1]=vflux_i[1]/vflux_i_magnitud;    // Velocidad térmica Iónica (Y)
-  vphi_e[1]=vflux_e[1]/vflux_i_magnitud;    // Velocidad térmica Electrónica (Y)
+  vphi_i[X]=vflux_i[X]/vflux_i_magnitud;    // Velocidad térmica Iónica (X)
+  vphi_e[X]=vflux_e[X]/vflux_i_magnitud;    // Velocidad térmica Electrónica (X)
+  vphi_i[Y]=vflux_i[Y]/vflux_i_magnitud;    // Velocidad térmica Iónica (Y)
+  vphi_e[Y]=vflux_e[Y]/vflux_i_magnitud;    // Velocidad térmica Electrónica (Y)
   fi_Maxwell[X]=  (2./(M_PI*vphi_i[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica (X)
   fe_Maxwell[X]=  (2./(M_PI*vphi_e[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
   fi_Maxwell[Y]=  (1./(M_PI*vphi_i[Y]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
@@ -257,12 +258,12 @@ int main()
     {
         for (int k = 0; k < J_Y; k++) 
         {
-          rho[j][k]= cte_rho* Factor_carga_e*(ni[j][k]/n_0- ne[j][k]/n_0);
+          rho[j][k]= cte_rho* Factor_carga_e*(ni[j][k]/n_0- ne[j][k]/n_0)*hx*hx*hx;
         }
     }
 
     // Calcular potencial eléctrico en puntos de malla
-    Poisson2D_PeriodicX_PeriodicY(phi,rho);
+    Poisson2D_DirichletX_PeriodicY(phi,rho);
 
     // Calcular campo eléctrico en puntos de malla
     Electric_Field(phi,E_X, E_Y);
@@ -308,7 +309,7 @@ int main()
           //Energia perdida por partícula pérdida
           E_perdida =  mv2perdidas;
 
-          fprintf(outEnergia,"%e %e %e %e %e  %e  %e %d  %e \n", kt*dt, E_total, E_i,E_e,E_field, total_e_perdidos+total_i_perdidos, E_perdida );       
+          fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt*dt, E_total, E_i,E_e,E_field, total_e_perdidos+total_i_perdidos, E_perdida );       
       }//Cierre de calculo de energia
 
       clock_t tiempo1 = clock();
@@ -401,7 +402,7 @@ void inject_Particles (double pos_e[max_SPe][2], double vel_e[max_SPe][2], doubl
 {  
    for (int i=0;i<max_SPe_dt;i++)
    {
-     pos_e[i+le][0]=hx; 
+     pos_e[i+le][0]=0; 
      vel_e[i+le][0]= create_Velocities_X (fe_Maxwell[0],vphi_e[0]);
      pos_e[i+le][1]=L_max[1]/2.0;
      vel_e[i+le][1]=create_Velocities_Y(fe_Maxwell[1],vphi_e[1]);
@@ -411,7 +412,7 @@ void inject_Particles (double pos_e[max_SPe][2], double vel_e[max_SPe][2], doubl
 
    for (int i=0;i<max_SPi_dt;i++)
    {
-     pos_i[i+li][0]=hx; 
+     pos_i[i+li][0]=0; 
      vel_i[i+li][0]=create_Velocities_X (fi_Maxwell[0],vphi_i[0]);
      pos_i[i+li][1]=L_max[1]/2.0;
      vel_i[i+li][1]=create_Velocities_Y (fi_Maxwell[1],vphi_i[1]);
@@ -674,9 +675,8 @@ void Poisson2D_PeriodicX_PeriodicY(double phi[J_X][J_Y],complex <double> rho[J_X
     // Resolver en el espacio de Fourier
     complex<double> i(0.0, 1.0);
     //double pi = M_PI;
-    double pi = 4 * atan(1.0);
-    complex<double> Wx = exp(2.0 * pi * i / double(M));
-    complex<double> Wy = exp(2.0 * pi * i / double(N));
+    complex<double> Wx = exp(2.0 * M_PI * i / double(M));
+    complex<double> Wy = exp(2.0 * M_PI * i / double(N));
     complex<double> Wm = 1.0, Wn = 1.0;
     for (int m = 0; m < M; m++) {
         for (int n = 0; n < N; n++) {
@@ -895,13 +895,13 @@ void Poisson2D_DirichletX_DirichletY(double phi[J_X][J_Y],complex <double> rho[J
 
     complex<double> i(0.0, 1.0);
     double pi = M_PI;
-    for (int m = 1; m < M-1; m++) 
+    for (int m = 0; m < M; m++) 
     {
-        for (int n = 1; n < N-1; n++)
+        for (int n = 0; n < N; n++)
          {
             complex<double> denom = h*h*2.0+hy*hy*2.0;;
-            denom-=   hy*hy*(2*cos((m+1)*pi/(M+1))) + h*h*(2*cos((n+1)*pi/(N+1)));
-            if (denom != 0.0)
+            denom-=   hy*hy*(2*cos((m+1)*M_PI/(M+1))) + h*h*(2*cos((n+1)*M_PI/(N+1)));
+            //if (denom != 0.0)
                     rho[m][n] *= h*h*hy*hy / denom;
         }
     }
