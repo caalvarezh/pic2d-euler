@@ -18,7 +18,7 @@
 
 #define max_SPe     10000           // Limite (computacional) de Superpartículas electrónicas
 #define max_SPi     10000           // Limite (computacional) de Superpartículas iónicas
-#define J_X         2047            // Número de puntos de malla X. Recomendado: Del orden 2^n-1
+#define J_X         2047           // Número de puntos de malla X. Recomendado: Del orden 2^n-1
 #define J_Y         64           // Número de puntos de malla Y. Recomendado: Del orden 2^n-1
 
 using namespace std;
@@ -104,7 +104,9 @@ int     NTSPe, NTSPI, max_SPe_dt, max_SPi_dt;
 double  L_max[2],  T,dt,t_0, ne0_3D,ni0_3D,ni0_1D,ne0_1D, vphi_i[2],vphi_e[2], vphi_i_magnitud, vphi_e_magnitud ,fi_Maxwell[2],fe_Maxwell[2],vpart,x_0,phi_inic;
 double  cte_rho=pow(e*t0,2)/(m_i*epsilon_0*pow(x0,3)); //Normalización de epsilon_0
 double  phi0=2.*k_b*Te/(M_PI*e), E0=phi0/x0;
-double  cte_E=t0*e*E0/(vflux_i[X]*m_e),fact_el=-1, fact_i=1./razon_masas;
+//double  cte_E=t0*e*E0/(vflux_i[X]*m_e),fact_el=-1, fact_i=1./razon_masas;
+double  cte_E=m_i*x0/(vflux_i[X]*t0*m_e),fact_el=-1, fact_i=1./razon_masas;
+
 
 int     total_e_perdidos=0;
 int     total_i_perdidos=0;
@@ -191,7 +193,6 @@ int main()
   x_0=1;
   hx=delta_X/x0;                            // Paso espacial
   double n_0=n0*x0*x0*x0;                   // Densidad de partículas
-  //n_0=1e4;
   dt=1.e-5;                                 // Paso temporal
   ni0_3D=ni03D*pow(x0,3);                   // Concentración de iones inicial 3D 
   ne0_3D=ne03D*pow(x0,3);                   // Concentración de electrones inicial 3D
@@ -242,7 +243,6 @@ int main()
 
     if(kt<=k_max_inj && kt==kk)                   // Inyectar superpartículas (i-e)
     {        
-      //initialize_Particles (pos_e,vel_e,pos_i, vel_i);
       le+=max_SPe_dt;
       li+=max_SPi_dt;
       kk=kk+Kemision;  
@@ -299,7 +299,7 @@ int main()
           {
             for(int ry=0;ry<J_Y;ry++)
             {
-              E_field = E_field +  (ni[r][ry] -ne[r][ry])*phi[r][ry]*hx*hx; 
+              E_field = E_field +  (ni[r][ry] -ne[r][ry])*phi[r][ry]*hx*hx*hx;
             }
           }
 
@@ -308,7 +308,7 @@ int main()
           E_total = E_field + E_i + E_e;           
 
           //Energia perdida por partícula pérdida
-          E_perdida =  mv2perdidas;
+          E_perdida =  mv2perdidas/M_PI;
 
           fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt*dt, E_total, E_i, E_e, E_field, total_e_perdidos+total_i_perdidos, E_perdida );       
       }//Cierre de calculo de energia
@@ -1049,8 +1049,8 @@ void  Motion(double pos[max_SPe][2],  double vel[max_SPe][2],  int NSP, int espe
        pos[i][X]=pos[i][X]+vel[i][X]*dt;
        pos[i][Y]=pos[i][Y]+vel[i][Y]*dt;
 
-       vel[i][X]=vel[i][X]+cte_E*fact*Ep_X*dt;
-       vel[i][Y]=vel[i][Y]+cte_E*fact*Ep_Y*dt;
+       vel[i][X]=vel[i][X]+cte_E*fact*Factor_carga_e*Ep_X*dt;
+       vel[i][Y]=vel[i][Y]+cte_E*fact*Factor_carga_e*Ep_Y*dt;
 
 
        if(pos[i][X]<0) //Rebote en la pared del material.
