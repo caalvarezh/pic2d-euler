@@ -58,12 +58,13 @@ void    Motion_i(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],
 void    Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2],
 
 
-                             int NSP, char *archivo_X, char *archivo_Y);
+    int NSP, char *archivo_X, char *archivo_Y);
 
 //************************
 // Parámetros del sistema
 //************************
 
+// La mayoria son constantes
 //double  razon_masas=1.98e5;     // m_i/E_MASS (Plata)
 const double  m_i=razon_masas*E_MASS;    // masa Ión
 const double  flujo_inicial=4.5e33;   // Flujo inicial (# part/m^2*s)
@@ -105,7 +106,8 @@ int     Ntv=8;
 int     le=0, li=0,kt;
 int     NTSPe, NTSPI, MAX_SPE_dt, MAX_SPI_dt;
 
-double  L_max[2],  T,dt,t_0, ne0_3D,ni0_3D,ni0_1D,ne0_1D, vphi_i[2],vphi_e[2], vphi_i_magnitud, vphi_e_magnitud ,fi_Maxwell[2],fe_Maxwell[2],vpart,x_0,phi_inic;
+double  L_max[2],  T,dt,t_0, ne0_3D,ni0_3D,ni0_1D,ne0_1D, vphi_i[2],vphi_e[2], vphi_i_magnitud;
+double  vphi_e_magnitud ,fi_Maxwell[2],fe_Maxwell[2],vpart,x_0,phi_inic;
 double  cte_rho=pow(E_CHARGE *t0,2)/(m_i*EPSILON_0*pow(x0,3)); //Normalización de EPSILON_0
 double  phi0=2.*K_BOLTZMANN*Te/(M_PI * E_CHARGE ), E0=phi0/x0;
 //double  cte_E=t0*e*E0/(vflux_i[X]*E_MASS),fact_el=-1, fact_i=1./razon_masas;
@@ -660,7 +662,7 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int NSP,
 
 }
 
-
+//hx Factor_carga_i dt total_e_perdidos mv2perdidas
 void  Motion_e(double pos[MAX_SPE][2], double vel[MAX_SPE][2], int NSP,
                double E_X[J_X][J_Y], double E_Y[J_X][J_Y]){//,
                //int total_e_perdidos, double mv2perdidas) {
@@ -728,7 +730,7 @@ void  Motion_e(double pos[MAX_SPE][2], double vel[MAX_SPE][2], int NSP,
   le=le-conteo_perdidas;
 }
 
-
+// Factor_carga_i fact_i dt  mv2perdidas
 void  Motion_i(double pos[MAX_SPE][2], double vel[MAX_SPE][2], int NSP,
                double E_X[J_X][J_Y], double E_Y[J_X][J_Y],
                int total_i_perdidos, double mv2perdidas) {
