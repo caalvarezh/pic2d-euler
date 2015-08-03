@@ -68,17 +68,14 @@ void    Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2],
 //double  razon_masas=1.98e5;     // m_i/E_MASS (Plata)
 const double  m_i=razon_masas*E_MASS;    // masa Ión
 const double  flujo_inicial=4.5e33;   // Flujo inicial (# part/m^2*s)
-const double  vflux_i[2]={1e3,1e3};  // Componentes de Velocidad de flujo iónico
-const double  vflux_i_magnitud=sqrt(vflux_i[0]*vflux_i[0]+vflux_i[1]*vflux_i[1]); // Velocidad de flujo iónico (m/s) = sqrt(2*K_BOLTZMANN*Te/(M_PI*m_i))
-const double  vflux_e[2]={sqrt(razon_masas)*vflux_i[0],sqrt(razon_masas)*vflux_i[1]};
+const double  vflux_i = 1e3;  // Componentes de Velocidad de flujo iónico
+const double  vflux_i_magnitud=sqrt(vflux_i*vflux_i+vflux_i*vflux_i); // Velocidad de flujo iónico (m/s) = sqrt(2*K_BOLTZMANN*Te/(M_PI*m_i))
+const double  vflux_e[2]={sqrt(razon_masas)*vflux_i,sqrt(razon_masas)*vflux_i};
 const double  vflux_e_magnitud=sqrt(vflux_e[0]*vflux_e[0]+vflux_e[1]*vflux_e[1]);
-const double  ni03D=flujo_inicial/vflux_i[X]; // Concentración inicial de iones (3D)
-const double  ne03D=flujo_inicial/vflux_e[X]; // Concentración inicial de electrones (3D)
 const double  Te=M_PI*0.5*E_MASS*pow(vflux_e[X],2)/K_BOLTZMANN;    // Temperatura electrónica inicial (°K)
                                                 // (vflujo=sqrt(2K_BOLTZMANNTe/(pi*me))
 
 double  lambda_D=sqrt(EPSILON_0*K_BOLTZMANN*Te/(ne03D*pow(E_CHARGE ,2)));  //Longitud de Debye
-double  om_p=vflux_e[X]/lambda_D;                    //Frecuencia del plasma
 double  ND=ne03D*pow(lambda_D,3);                          //Parámetro del plasma
 int     NTe=1e5, NTI=1e5;                                  //Número de partículas "reales"
 
@@ -88,7 +85,7 @@ int     NTe=1e5, NTI=1e5;                                  //Número de partícu
 //***************************
 
 double  t0=1e-13;                   //Escala de tiempo: Tiempo de vaporización
-double  x0=vflux_i[X]*t0;   //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
+double  x0=vflux_i*t0;   //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
 //double  x0=lambda_D;                //Escala de longitud: Longitud de Debye
 double  n0=double(NTe)/(x0*x0*x0);
 
@@ -106,18 +103,17 @@ int     Ntv=8;
 int     le=0, li=0,kt;
 int     NTSPe, NTSPI, MAX_SPE_dt, MAX_SPI_dt;
 
-double  L_max[2],  T,dt,t_0, ne0_3D,ni0_3D,ni0_1D,ne0_1D, vphi_i[2],vphi_e[2], vphi_i_magnitud;
-double  vphi_e_magnitud ,fi_Maxwell[2],fe_Maxwell[2],vpart,x_0,phi_inic;
+double  L_max[2], dt,t_0, ne0_3D,ni0_3D, vphi_i[2],vphi_e[2];
+double  fi_Maxwell[2],fe_Maxwell[2], x_0;
 double  cte_rho=pow(E_CHARGE *t0,2)/(m_i*EPSILON_0*pow(x0,3)); //Normalización de EPSILON_0
 double  phi0=2.*K_BOLTZMANN*Te/(M_PI * E_CHARGE ), E0=phi0/x0;
-//double  cte_E=t0*e*E0/(vflux_i[X]*E_MASS),fact_el=-1, fact_i=1./razon_masas;
-double  cte_E=razon_masas*x0/(vflux_i[X]*t0),fact_el=-1, fact_i=1./razon_masas;
+//double  cte_E=t0*e*E0/(vflux_i*E_MASS),fact_el=-1, fact_i=1./razon_masas;
+double  cte_E=razon_masas*x0/(vflux_i*t0),fact_el=-1, fact_i=1./razon_masas;
 
 
-FILE    *outPot19,*outEnergia, *outPot0_6, *outPot0_9, *outPot1_5, *outPot3_5, *outPot5_5, *outPot15;
+FILE    *outEnergia;
 FILE    *outFase_ele[81];
 FILE    *outFase_ion[81];
-FILE    *outPoisson;
 
 double hx;
 
@@ -126,6 +122,9 @@ int  total_i_perdidos=0;
 double  mv2perdidas=0;
 
 int main() {
+  double  ni0_3D = flujo_inicial/vflux_i*pow(x0,3);
+  double  ne0_3D = flujo_inicial/vflux_e[X] * pow(x0,3);
+  double  om_p = vflux_e[X]/lambda_D;                    //Frecuencia del plasma
   int seed = time (NULL); srand (seed);  // Semilla para generar números aleatorios dependiendo del reloj interno.
 
   //******************
@@ -145,7 +144,7 @@ int main() {
   }
 
 
-  printf("ni03D=%e \nne03D=%e \nTemperatura electronica=%e eV \nLongitud de Debye=%e  \nFrecuencia del plasma=%e \nTp=%e \nND=%e \nLX=%e \nLY=%e \n",ni03D,ne03D,Te*K_BOLTZMANN/(1.602e-19),lambda_D,om_p,2*M_PI/om_p,ND,Lmax[0],Lmax[1]);
+//printf("ni03D=%e \nne03D=%e \nTemperatura electronica=%e eV \nLongitud de Debye=%e  \nFrecuencia del plasma=%e \nTp=%e \nND=%e \nLX=%e \nLY=%e \n",ni03D,ne03D,Te*K_BOLTZMANN/(1.602e-19),lambda_D,om_p,2*M_PI/om_p,ND,Lmax[0],Lmax[1]);
 
   printf("cte_E=%e  \ncte_rho=%e  \nTe = %e  \nhx*Ld = %e  \n",cte_E,cte_rho, Te, hx*lambda_D );
 
@@ -174,12 +173,10 @@ int main() {
   hx=delta_X/x0;                            // Paso espacial
   double n_0=n0*x0*x0*x0;                   // Densidad de partículas
   dt=1.e-5;                                 // Paso temporal
-  ni0_3D=ni03D*pow(x0,3);                   // Concentración de iones inicial 3D
-  ne0_3D=ne03D*pow(x0,3);                   // Concentración de electrones inicial 3D
-  vphi_i[X]=vflux_i[X]/vflux_i[X];    // Velocidad térmica Iónica (X)
-  vphi_e[X]=vflux_e[X]/vflux_i[X];    // Velocidad térmica Electrónica (X)
-  vphi_i[Y]=vflux_i[Y]/vflux_i[X];    // Velocidad térmica Iónica (Y)
-  vphi_e[Y]=vflux_e[Y]/vflux_i[X];    // Velocidad térmica Electrónica (Y)
+  vphi_i[X]=vflux_i/vflux_i;    // Velocidad térmica Iónica (X)
+  vphi_e[X]=vflux_e[X]/vflux_i;    // Velocidad térmica Electrónica (X)
+  vphi_i[Y]=vflux_i/vflux_i;    // Velocidad térmica Iónica (Y)
+  vphi_e[Y]=vflux_e[Y]/vflux_i;    // Velocidad térmica Electrónica (Y)
   fi_Maxwell[X]=  (2./(M_PI*vphi_i[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica (X)
   fe_Maxwell[X]=  (2./(M_PI*vphi_e[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
   fi_Maxwell[Y]=  (1./(M_PI*vphi_i[Y]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
@@ -333,13 +330,6 @@ int main() {
   } //Cierre del ciclo principal
 
   fclose(outEnergia);
-  fclose(outPot0_6);
-  fclose(outPot0_9);
-  fclose(outPot1_5);
-  fclose(outPot3_5);
-  fclose(outPot5_5);
-  fclose(outPot15);
-  fclose(outPot19);
   for(int i=0;i<=80;i++)
   {
     fclose(outFase_ele[i]);
