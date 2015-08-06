@@ -31,20 +31,36 @@
 
 #define Factor_carga_e 10
 #define Factor_carga_i 10       //Número de partículas por superpartícula.
+#define FACT_EL -1
+#define FACT_I 1./razon_masas
+#define T0  1e-13                   //Escala de tiempo: Tiempo de vaporización
+#define VFLUX_I 1e3  // Componentes de Velocidad de flujo iónico
+#define VFLUX_E_X sqrt(razon_masas)*VFLUX_I
+#define VFLUX_E_Y sqrt(razon_masas)*VFLUX_I
+#define VPHI_I_X VFLUX_I/VFLUX_I    // Velocidad térmica Iónica (X)
+#define VPHI_I_Y VFLUX_I/VFLUX_I    // Velocidad térmica Iónica (Y)
+#define VPHI_E_X VFLUX_E_X/VFLUX_I    // Velocidad térmica Electrónica (X)
+#define VPHI_E_Y VFLUX_E_Y/VFLUX_I    // Velocidad térmica Electrónica (Y)
+#define flujo_inicial 4.5e33        // Flujo inicial (# part/m^2*s)
+#define FI_MAXWELL_X (2. / (M_PI * VPHI_I_X))    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica (X)
+#define FI_MAXWELL_Y (1. / (M_PI * VPHI_I_Y))    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
+#define FE_MAXWELL_X (2. / (M_PI * VPHI_E_X))    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
+#define FE_MAXWELL_Y (1. / (M_PI * VPHI_E_Y))    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
+#define m_i razon_masas * E_MASS    // masa Ión
+#define X0 VFLUX_I * T0   //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
+double  L_max[2], dt;
+
+
+double  cte_E = razon_masas * X0 / (VFLUX_I * T0);
+
+// La mayoria son constantes
+//double  razon_masas = 1.98e5;     // m_i/E_MASS (Plata)
+double  VFLUX_I_magnitud = sqrt(VFLUX_I*VFLUX_I+VFLUX_I*VFLUX_I); // Velocidad de flujo iónico (m/s)  =  sqrt(2*K_BOLTZMANN*Te/(M_PI*m_i))
+double  vflux_e_magnitud = sqrt(VFLUX_E_X*VFLUX_E_X+VFLUX_E_Y*VFLUX_E_Y);
+double  Te = M_PI*0.5*E_MASS*pow(VFLUX_E_X,2)/K_BOLTZMANN;    // Temperatura electrónica inicial (°K)
+// (vflujo = sqrt(2K_BOLTZMANNTe/(pi*me))
 
 int le = 0, li = 0;
-double  L_max[2], dt, vphi_i[2],vphi_e[2];
-
-
-double  fi_Maxwell[2], fe_Maxwell[2];
-//double  cte_E = t0*e*E0/(vflux_i*E_MASS),fact_el = -1, fact_i = 1./razon_masas;
-double  t0 = 1e-13;                   //Escala de tiempo: Tiempo de vaporización
-double  vflux_i = 1e3;  // Componentes de Velocidad de flujo iónico
-double  x0 = vflux_i * t0;   //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
-double  cte_E = razon_masas * x0 / (vflux_i * t0);
-double  fact_el = -1;
-double  fact_i = 1. / razon_masas;
-
 using namespace std;
 
 void   initialize_Particles(double pos_e[MAX_SPE][2], double vel_e[MAX_SPE][2],
@@ -97,19 +113,9 @@ int main() {
   // Parámetros del sistema
   //************************
 
-  // La mayoria son constantes
-  //double  razon_masas = 1.98e5;     // m_i/E_MASS (Plata)
-  double  m_i = razon_masas * E_MASS;    // masa Ión
-  double  flujo_inicial = 4.5e33;   // Flujo inicial (# part/m^2*s)
-  double  vflux_i_magnitud = sqrt(vflux_i*vflux_i+vflux_i*vflux_i); // Velocidad de flujo iónico (m/s)  =  sqrt(2*K_BOLTZMANN*Te/(M_PI*m_i))
-  double  vflux_e[2] = {sqrt(razon_masas)*vflux_i,sqrt(razon_masas)*vflux_i};
-  double  vflux_e_magnitud = sqrt(vflux_e[0]*vflux_e[0]+vflux_e[1]*vflux_e[1]);
-  double  Te = M_PI*0.5*E_MASS*pow(vflux_e[X],2)/K_BOLTZMANN;    // Temperatura electrónica inicial (°K)
-  // (vflujo = sqrt(2K_BOLTZMANNTe/(pi*me))
-
   double  t_0, x_0;
-  double  ni03D  =  flujo_inicial / vflux_i;
-  double  ne03D  =  flujo_inicial / vflux_e[X];
+  double  ni03D  =  flujo_inicial / VFLUX_I;
+  double  ne03D  =  flujo_inicial / VFLUX_E_X;
   double  lambda_D = sqrt(EPSILON_0*K_BOLTZMANN*Te/(ne03D*pow(E_CHARGE ,2)));  //Longitud de Debye
   double  ND = ne03D * pow(lambda_D,3);                          //Parámetro del plasma
   int     NTe = 1e5, NTI = 1e5;                                  //Número de partículas "reales"
@@ -119,8 +125,8 @@ int main() {
   int     K_total;     //Tiempo total
   int     Ntv = 8;
   int     NTSPe, NTSPI, MAX_SPE_dt, MAX_SPI_dt;
-  double  cte_rho = pow(E_CHARGE * t0, 2) / (m_i * EPSILON_0 * pow(x0, 3)); //Normalización de EPSILON_0
-  double  phi0 = 2. * K_BOLTZMANN * Te / (M_PI * E_CHARGE ), E0 = phi0 / x0;
+  double  cte_rho = pow(E_CHARGE * T0, 2) / (m_i * EPSILON_0 * pow(X0, 3)); //Normalización de EPSILON_0
+  double  phi0 = 2. * K_BOLTZMANN * Te / (M_PI * E_CHARGE ), E0 = phi0 / X0;
   FILE    *outEnergia;
 
 
@@ -128,11 +134,11 @@ int main() {
   //Constantes de normalización
   //***************************
 
-  //double  x0 = lambda_D;                //Escala de longitud: Longitud de Debye
-  double  n0  =  double(NTe) / (x0 * x0 * x0);
-  double  ni0_3D  =  ni03D * pow(x0, 3);
-  double  ne0_3D  =  ne03D * pow(x0, 3);
-  double  om_p  =  vflux_e[X] / lambda_D;                    //Frecuencia del plasma
+  //double  X0 = lambda_D;                //Escala de longitud: Longitud de Debye
+  double  n0  =  double(NTe) / (X0 * X0 * X0);
+  double  ni0_3D  =  ni03D * pow(X0, 3);
+  double  ne0_3D  =  ne03D * pow(X0, 3);
+  double  om_p  =  VFLUX_E_X / lambda_D;                    //Frecuencia del plasma
   double hx;
   int seed  =  time (NULL);
   srand (seed);  // Semilla para generar números aleatorios dependiendo del reloj interno.
@@ -160,7 +166,7 @@ int main() {
 
   printf("cte_E = %e  \ncte_rho = %e  \nTe  =  %e  \nhx*Ld  =  %e  \n",cte_E,cte_rho, Te, hx*lambda_D );
 
-  //printf("dt/t0 = %e    \ndt/T = %e   \nhx/lambda_D = %e \nTiempo vapor. = %d dt \n",dt/t_0,dt/T,hx/(lambda_D/x0), k_max_inj);
+  //printf("dt/T0 = %e    \ndt/T = %e   \nhx/lambda_D = %e \nTiempo vapor. = %d dt \n",dt/t_0,dt/T,hx/(lambda_D/X0), k_max_inj);
 
   //****************************************
   // Inicialización de variables del sistema
@@ -178,32 +184,24 @@ int main() {
   // Normalización de variables
   //***************************
 
-  L_max[X] = Lmax[X]/x0;                      // Longitud región de simulación
-  L_max[Y] = Lmax[Y] / x0;                      // Longitud región de simulación
+  L_max[X] = Lmax[X]/X0;                      // Longitud región de simulación
+  L_max[Y] = Lmax[Y] / X0;                      // Longitud región de simulación
   t_0 = 1;
   x_0 = 1;
-  hx = delta_X / x0;                            // Paso espacial
-  double n_0 = n0 * x0 * x0 * x0;                   // Densidad de partículas
+  hx = delta_X / X0;                            // Paso espacial
+  double n_0 = n0 * X0 * X0 * X0;                   // Densidad de partículas
   dt = 1.e-5;                                 // Paso temporal
-  vphi_i[X] = vflux_i / vflux_i;    // Velocidad térmica Iónica (X)
-  vphi_e[X] = vflux_e[X] / vflux_i;    // Velocidad térmica Electrónica (X)
-  vphi_i[Y] = vflux_i / vflux_i;    // Velocidad térmica Iónica (Y)
-  vphi_e[Y] = vflux_e[Y] / vflux_i;    // Velocidad térmica Electrónica (Y)
-  fi_Maxwell[X] =   (2. / (M_PI * vphi_i[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica (X)
-  fe_Maxwell[X] =   (2. / (M_PI * vphi_e[X]));    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
-  fi_Maxwell[Y] =   (1. / (M_PI * vphi_i[Y]));    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
-  fe_Maxwell[Y] =   (1. / (M_PI * vphi_e[Y]));    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
   NTSPe = NTe / Factor_carga_e;
   NTSPI = NTI / Factor_carga_i; // Número total de superpartículas
-  // Inyectadas en un tiempo t0.
+  // Inyectadas en un tiempo T0.
   // ( =  número de superpartículas
   // Inyectadas por unidad de tiempo,
-  // puesto que t0*(normalizado) = 1.
+  // puesto que T0*(normalizado) = 1.
 
 
-  printf("x0^3 = %e \nn0i = %e \nlambda/hx = %e \nTemp  =  %e\n", x0*x0*x0, ni03D, lambda_D/x0,K_BOLTZMANN*Te);
+  printf("X0^3 = %e \nn0i = %e \nlambda/hx = %e \nTemp  =  %e\n", X0*X0*X0, ni03D, lambda_D/X0,K_BOLTZMANN*Te);
   //printf("dt = %e \nMAX_SPE_dt = %d  \n",dt_emision/t_0,MAX_SPI_dt);
-  //printf("Energia = %e \n",Et0);
+  //printf("Energia = %e \n",ET0);
 
   int Kemision = 20;  //Pasos para liberar partículas
   double dt_emision = Kemision * dt; //Tiempo para liberar partículas
@@ -350,17 +348,17 @@ int main() {
 //**********************************
 //Función de Inyección de partículas
 //**********************************
-// MAX_SPE, le, X, Y, vphi_e, vphi_i, fe_Maxwell, L_MAX
+// le, li
 void initialize_Particles (double pos_e[MAX_SPE][2], double vel_e[MAX_SPE][2], double pos_i[MAX_SPI][2], double vel_i[MAX_SPI][2]) {
   for (int i = 0;i<MAX_SPE;i++) {
     pos_e[i+le][X] = 0;
-    vel_e[i+le][X] =  create_Velocities_X (fe_Maxwell[X], vphi_e[X]);
+    vel_e[i+le][X] =  create_Velocities_X (FE_MAXWELL_X, VPHI_E_X);
     pos_e[i+le][Y] = L_max[1] / 2.0;
-    vel_e[i+le][Y] = create_Velocities_Y(fe_Maxwell[Y], vphi_e[Y]);
+    vel_e[i+le][Y] = create_Velocities_Y(FE_MAXWELL_Y, VPHI_E_Y);
     pos_i[i+li][X] = 0;
-    vel_i[i+li][X] = create_Velocities_X (fi_Maxwell[X], vphi_i[X]);
+    vel_i[i+li][X] = create_Velocities_X (FI_MAXWELL_X, VPHI_I_X);
     pos_i[i+li][Y] = L_max[1] / 2.0;
-    vel_i[i+li][Y] = create_Velocities_Y (fi_Maxwell[Y], vphi_i[Y]);
+    vel_i[i+li][Y] = create_Velocities_Y (FI_MAXWELL_Y, VPHI_I_Y);
   }
 }
 
@@ -566,7 +564,7 @@ void electric_field(double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][
 }
 
 //*******************************************************
-// fact_el, fact_i, Factor_carga_e, dt, total_e_perdidos, total_i_perdidos, cte_E, mv2perdidas
+// Factor_carga_e, dt, total_e_perdidos, total_i_perdidos, cte_E, mv2perdidas
 void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int NSP,
     int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y], int kt, double hx){
   //int total_e_perdidos, int total_i_perdidos, double mv2perdidas) {
@@ -577,9 +575,9 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int NSP,
   int conteo_perdidas = 0;
 
   if(especie ==  ELECTRONS)
-    fact = fact_el;
+    fact = FACT_EL;
   else
-    fact = fact_i;
+    fact = FACT_I;
 
   for (int i = 0;i<NSP;i++) {
     jr_x = pos[i][X]/hx;     // Índice (real) de la posición de la superpartícula (X)
@@ -723,8 +721,8 @@ void  Motion_e(double pos[MAX_SPE][2], double vel[MAX_SPE][2], int NSP,
       (1-temp_x)*temp_y*E_Y[j_x][j_y+1]+
       temp_x*temp_y*E_Y[j_x+1][j_y+1];
 
-    vel[i][X] = vel[i][X]+cte_E*Factor_carga_e*fact_el*Ep_X*dt;
-    vel[i][Y] = vel[i][Y]+cte_E*Factor_carga_e*fact_el*Ep_Y*dt;
+    vel[i][X] = vel[i][X]+cte_E*Factor_carga_e*FACT_EL*Ep_X*dt;
+    vel[i][Y] = vel[i][Y]+cte_E*Factor_carga_e*FACT_EL*Ep_Y*dt;
 
     pos[i][X] = pos[i][X]+vel[i][X]*dt;
     pos[i][Y] = pos[i][Y]+vel[i][Y]*dt;
@@ -763,7 +761,7 @@ void  Motion_e(double pos[MAX_SPE][2], double vel[MAX_SPE][2], int NSP,
   le = le-conteo_perdidas;
 }
 
-// Factor_carga_i fact_i dt  mv2perdidas
+// Factor_carga_i FACT_I dt  mv2perdidas
 void  Motion_i(double pos[MAX_SPE][2], double vel[MAX_SPE][2], int NSP,
     double E_X[J_X][J_Y], double E_Y[J_X][J_Y],
     int total_i_perdidos, double mv2perdidas, int kt) {
@@ -793,8 +791,8 @@ void  Motion_i(double pos[MAX_SPE][2], double vel[MAX_SPE][2], int NSP,
       (1-temp_x)*temp_y*E_Y[j_x][j_y+1]+
       temp_x*temp_y*E_Y[j_x+1][j_y+1];
 
-    vel[i][X] = vel[i][X]+cte_E*Factor_carga_e*fact_i*Ep_X*dt;
-    vel[i][Y] = vel[i][Y]+cte_E*Factor_carga_e*fact_i*Ep_Y*dt;
+    vel[i][X] = vel[i][X]+cte_E*Factor_carga_e*FACT_I*Ep_X*dt;
+    vel[i][Y] = vel[i][Y]+cte_E*Factor_carga_e*FACT_I*Ep_Y*dt;
 
     pos[i][X] = pos[i][X]+vel[i][X]*dt;
     pos[i][Y] = pos[i][Y]+vel[i][Y]*dt;
