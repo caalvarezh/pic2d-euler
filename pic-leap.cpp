@@ -68,6 +68,25 @@
 
 using namespace std;
 
+/*
+void   initialize_Particles(double *pos_e, double *vel_e, double *pos_i,
+                            double *vel_i, int li, int le);
+
+void   Concentration(double *pos, double *n, int NSP, double hx);
+
+void   poisson2D_dirichletX_periodicY(double *phi, complex <double> *rho,
+                                      double hx);
+
+void   electric_field(double *phi, double *E_X, double *E_Y, double hx);
+
+void   Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
+              double *E_Y, int kt, double hx, int &total_perdidos,
+              double mv2perdidas);
+
+void   Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X,
+                            char *archivo_Y);
+
+*/
 void   initialize_Particles(double pos_e[MAX_SPE][2], double vel_e[MAX_SPE][2],
                             double pos_i[MAX_SPI][2], double vel_i[MAX_SPI][2],
                             int li, int le);
@@ -125,7 +144,6 @@ int main() {
   int  total_e_perdidos = 0;
   int  total_i_perdidos = 0;
   double  mv2perdidas = 0;
-  double  L_max[2];
 
   double  ND = NE03D * pow(LAMBDA_D,3);                          //Parámetro del plasma
   int     NTe = 1e5, NTI = 1e5;                                  //Número de partículas "reales"
@@ -354,6 +372,26 @@ int main() {
 //Función de Inyección de partículas
 //**********************************
 
+void initialize_Particles (double *pos_e, double *vel_e, double *pos_i, double *vel_i,
+    int li, int le) {
+  for (int i = 0;i<MAX_SPE;i++) {
+    pos_e[i + le] = 0;
+    vel_e[i + le] =  create_Velocities_X (FE_MAXWELL_X, VPHI_E_X);
+    pos_e[i + le + MAX_SPE] = L_MAX_Y / 2.0;
+    vel_e[i + le + MAX_SPE] = create_Velocities_Y(FE_MAXWELL_Y, VPHI_E_Y);
+
+    pos_i[i + li] = 0;
+    vel_i[i + li] = create_Velocities_X (FI_MAXWELL_X, VPHI_I_X);
+    pos_i[i + li + MAX_SPI] = L_MAX_Y / 2.0;
+    vel_i[i + li + MAX_SPI] = create_Velocities_Y (FI_MAXWELL_Y, VPHI_I_Y);
+  }
+}
+
+
+//**********************************
+//Función de Inyección de partículas
+//**********************************
+
 void initialize_Particles (double pos_e[MAX_SPE][2], double vel_e[MAX_SPE][2], double pos_i[MAX_SPI][2], double vel_i[MAX_SPI][2],
     int li, int le) {
   for (int i = 0;i<MAX_SPE;i++) {
@@ -367,6 +405,7 @@ void initialize_Particles (double pos_e[MAX_SPE][2], double vel_e[MAX_SPE][2], d
     vel_i[i+li][Y] = create_Velocities_Y (FI_MAXWELL_Y, VPHI_I_Y);
   }
 }
+
 
 //*********************
 //Velocidades Iniciales
@@ -435,6 +474,29 @@ double create_Velocities_Y(double fmax,double vphi) {// función para generar di
 //**************************************************************************************
 //Determinación del aporte de carga de cada superpartícula sobre las 4 celdas adyacentes
 //**************************************************************************************
+void Concentration (double *pos, double *n, int NSP, double hx) {
+  int j_x,j_y;
+  double temp_x,temp_y;
+  double jr_x,jr_y;
+  for(int i = 0; i < J_X * J_Y; i++) {
+    n[i] = 0.;
+  } // Inicializar densidad de carga
+
+  for (int i = 0;i<NSP;i++) {
+    jr_x = pos[i]/hx; // indice (real) de la posición de la superpartícula
+    j_x  = int(jr_x);    // indice  inferior (entero) de la celda que contiene a la superpartícula
+    temp_x  =  jr_x-j_x;
+    jr_y = pos[i * MAX_SPE] / hx; // indice (real) de la posición de la superpartícula
+    j_y  = int(jr_y);    // indice  inferior (entero) de la celda que contiene a la superpartícula
+    temp_y  =  jr_y-j_y;
+
+    n[j_x + (j_y * J_X)] +=  (1.-temp_x)*(1.-temp_y)/(hx*hx*hx);
+    n[(j_x+1) + (j_y * J_X)] +=  temp_x*(1.-temp_y)/(hx*hx*hx);
+    n[j_x + ((j_y + 1) * J_X)] +=  (1.-temp_x)*temp_y/(hx*hx*hx);
+    n[(j_x + 1) + ((j_y + 1) * J_X)] +=  temp_x*temp_y/(hx*hx*hx);
+  }
+}
+
 void Concentration (double pos[MAX_SPE][2], double n[J_X][J_Y],int NSP, double hx) {
   int j_x,j_y;
   double temp_x,temp_y;
@@ -460,6 +522,8 @@ void Concentration (double pos[MAX_SPE][2], double n[J_X][J_Y],int NSP, double h
 
   }
 }
+
+
 
 //***********************************************************************
 //Cálculo del Potencial Electrostático en cada uno de los puntos de malla
