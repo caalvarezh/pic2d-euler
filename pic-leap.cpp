@@ -20,7 +20,7 @@
 #define MAX_SPE      10000           // Limite (computacional) de Superpartículas electrónicas
 #define MAX_SPI      10000           // Limite (computacional) de Superpartículas iónicas
 //#define J_X         65          cambiar?
-#define J_X          64           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+#define J_X          65           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
 //#define J_Y         16          cambiar?
 #define J_Y          16           // Número de puntos de malla Y. Recomendado: Del orden 2^n
 #define ELECTRONS    0
@@ -54,7 +54,7 @@ const double CTE_E = (RAZON_MASAS * X0 / (VFLUX_I * T0));
 const double DT = 1.e-5;                                  // Paso temporal
 const double VFLUX_I_magnitud =  sqrt(VFLUX_I * VFLUX_I + VFLUX_I * VFLUX_I); // Velocidad de flujo iónico (m/s)  =  sqrt(2*K_BOLTZMANN*Te/(M_PI*M_I))
 const double vflux_e_magnitud =  sqrt(VFLUX_E_X * VFLUX_E_X + VFLUX_E_Y * VFLUX_E_Y);
-const double Te = (M_PI * 0.5 * E_MASS * pow(VFLUX_E_X, 2) / K_BOLTZMANN);    // Temperatura electrónica inicial (°K)
+const double Te = (M_PI * 0.5 * E_MASS * (pow(VFLUX_E_X, 2) / K_BOLTZMANN));    // Temperatura electrónica inicial (°K)
 
 const double NI03D = (FLUJO_INICIAL / VFLUX_I);
 const double NE03D = (FLUJO_INICIAL / VFLUX_E_X);
@@ -245,10 +245,11 @@ int main() {
 
   initialize_Particles (pos_e, vel_e, pos_i, vel_i, li, le);//Velocidades y posiciones iniciales de las partículas (no las libera).
 
-  clock_t tiempo0  =  clock();
+  clock_t tiempo0  =  clock(), t0;
 
 
-  for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
+  for(int kk  =  0, kt  =  0; kt <= K_total and kt < 5; kt++) {
+    t0 = clock();
     if(kt % 10000 == 0) {
       printf("kt = %d\n", kt);
       printf("le = %d   li = %d \n",le, li );
@@ -265,6 +266,8 @@ int main() {
 
     Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
     Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+    cout << "time Concentration: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
+    t0 = clock();
 
     for (int j  =  0; j < J_X; j++)
       for (int k  =  0; k < J_Y; k++)
@@ -272,9 +275,13 @@ int main() {
 
     // Calcular potencial eléctrico en puntos de malla
     poisson2D_dirichletX_periodicY(phi, rho, hx);
+    cout << "time poisson2D_dirichletX_periodicY: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
+    t0 = clock();
 
     // Calcular campo eléctrico en puntos de malla
     electric_field(phi, E_X, E_Y, hx);
+    cout << "time electric_field: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
+    t0 = clock();
 
     // imprimir el potencial electroestatico.
     if(kt % 50000  ==  0) {
@@ -310,7 +317,11 @@ int main() {
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
 
     Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    cout << "time Motion_e: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
+    t0 = clock();
     Motion(pos_i, vel_i, li, IONS, E_X, E_Y, kt, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    cout << "time Motion_i : " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
+    t0 = clock();
 
     //Motion_e(pos_e,vel_e,le, E_X, E_Y, total_e_perdidos, mv2perdidas);
     //Motion_i(pos_i,vel_i,li, E_X, E_Y, total_i_perdidos, mv2perdidas);
@@ -376,7 +387,7 @@ int main() {
 //Función de Inyección de partículas
 //**********************************
 
-void initialize_Particles (double *pos_e, double *vel_e, double *pos_i, double *vel_i,
+/*void initialize_Particles (double *pos_e, double *vel_e, double *pos_i, double *vel_i,
     int li, int le) {
   for (int i = 0;i<MAX_SPE;i++) {
     pos_e[i + le] = 0;
@@ -389,7 +400,7 @@ void initialize_Particles (double *pos_e, double *vel_e, double *pos_i, double *
     pos_i[i + li + MAX_SPI] = L_MAX_Y / 2.0;
     vel_i[i + li + MAX_SPI] = create_Velocities_Y (FI_MAXWELL_Y, VPHI_I_Y);
   }
-}
+}*/
 
 
 //**********************************
@@ -478,7 +489,7 @@ double create_Velocities_Y(double fmax,double vphi) {// función para generar di
 //**************************************************************************************
 //Determinación del aporte de carga de cada superpartícula sobre las 4 celdas adyacentes
 //**************************************************************************************
-void Concentration (double *pos, double *n, int NSP, double hx) {
+/*void Concentration (double *pos, double *n, int NSP, double hx) {
   int j_x,j_y;
   double temp_x,temp_y;
   double jr_x,jr_y;
@@ -500,7 +511,7 @@ void Concentration (double *pos, double *n, int NSP, double hx) {
     n[(j_x + 1) + ((j_y + 1) * J_X)] +=  temp_x*temp_y/(hx*hx*hx);
   }
 }
-
+*/
 void Concentration (double pos[MAX_SPE][2], double n[J_X][J_Y],int NSP, double hx) {
   int j_x,j_y;
   double temp_x,temp_y;
@@ -614,7 +625,7 @@ void poisson2D_dirichletX_periodicY(double phi[J_X][J_Y],complex <double> rho[J_
 }
 
 //*********************************************************
-void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
+/*void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
 
   for (int j = 1; j < J_X - 1; j++) {
 
@@ -635,7 +646,7 @@ void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
     E_Y[j + ((J_Y - 1) * J_X)] = (phi[j + ((J_Y - 2) * J_X)] - phi[j]) / (2. * hx);
 
   }
-}
+}*/
 
 void electric_field(double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][J_Y], double hx) {
 
@@ -752,7 +763,7 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
 }
 
 
-void Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X, char *archivo_Y) {
+/*void Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X, char *archivo_Y) {
   double Nc = 100;
   FILE *pFile[2];
   pFile[0]  =  fopen(archivo_X,"w");
@@ -788,7 +799,7 @@ void Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X, ch
     }
     fclose(pFile[i]);
   }
-}
+}*/
 
 
 void Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2] , int NSP, char *archivo_X, char *archivo_Y) {
