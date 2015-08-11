@@ -31,37 +31,37 @@
 #define Y            1
 #define RAZON_MASAS  1.98e5    // M_I/E_MASS (Plata)
 
-#define FACTOR_CARGA_E 10
-#define FACTOR_CARGA_I 10       //Número de partículas por superpartícula.
-#define FACT_EL (-1)
-#define FACT_I (1. / RAZON_MASAS)
-#define T0  1e-13                   //Escala de tiempo: Tiempo de vaporización
-#define VFLUX_I 1e3  // Componentes de Velocidad de flujo iónico
-#define VFLUX_E_X (sqrt(RAZON_MASAS) * VFLUX_I)
-#define VFLUX_E_Y (sqrt(RAZON_MASAS) * VFLUX_I)
-#define VPHI_I_X (VFLUX_I / VFLUX_I)    // Velocidad térmica Iónica (X)
-#define VPHI_I_Y (VFLUX_I / VFLUX_I)    // Velocidad térmica Iónica (Y)
-#define VPHI_E_X (VFLUX_E_X / VFLUX_I)    // Velocidad térmica Electrónica (X)
-#define VPHI_E_Y (VFLUX_E_Y / VFLUX_I)    // Velocidad térmica Electrónica (Y)
-#define FLUJO_INICIAL 4.5e33        // Flujo inicial (# part/m^2*s)
-#define FI_MAXWELL_X (2. / (M_PI * VPHI_I_X))    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica (X)
-#define FI_MAXWELL_Y (1. / (M_PI * VPHI_I_Y))    // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
-#define FE_MAXWELL_X (2. / (M_PI * VPHI_E_X))    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
-#define FE_MAXWELL_Y (1. / (M_PI * VPHI_E_Y))    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
-#define M_I (RAZON_MASAS * E_MASS)    // masa Ión
-#define X0 (VFLUX_I * T0)   //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
-#define CTE_E (RAZON_MASAS * X0 / (VFLUX_I * T0))
-#define DT 1.e-5                                 // Paso temporal
-#define VFLUX_I_magnitud sqrt(VFLUX_I * VFLUX_I + VFLUX_I * VFLUX_I) // Velocidad de flujo iónico (m/s)  =  sqrt(2*K_BOLTZMANN*Te/(M_PI*M_I))
-#define vflux_e_magnitud sqrt(VFLUX_E_X * VFLUX_E_X + VFLUX_E_Y * VFLUX_E_Y)
-#define Te (M_PI * 0.5 * E_MASS * pow(VFLUX_E_X, 2) / K_BOLTZMANN)    // Temperatura electrónica inicial (°K)
+const int FACTOR_CARGA_E = 10;
+const int FACTOR_CARGA_I = 10;       //Número de partículas por superpartícula.
+const int FACT_EL = (-1);
+const double FACT_I = (1. / RAZON_MASAS);
+const double T0 = 1e-13;                   //Escala de tiempo: Tiempo de vaporización
+const double VFLUX_I = 1e3;  // Componentes de Velocidad de flujo iónico
+const double VFLUX_E_X = (sqrt(RAZON_MASAS) * VFLUX_I);
+const double VFLUX_E_Y = (sqrt(RAZON_MASAS) * VFLUX_I);
+const double VPHI_I_X = (VFLUX_I / VFLUX_I);    // Velocidad térmica Iónica (X)
+const double VPHI_I_Y = (VFLUX_I / VFLUX_I);    // Velocidad térmica Iónica (Y)
+const double VPHI_E_X = (VFLUX_E_X / VFLUX_I);    // Velocidad térmica Electrónica (X)
+const double VPHI_E_Y = (VFLUX_E_Y / VFLUX_I);    // Velocidad térmica Electrónica (Y)
+const double FLUJO_INICIAL = 4.5e33;        // Flujo inicial (# part/m^2*s)
+const double FI_MAXWELL_X = (2. / (M_PI * VPHI_I_X));     // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica (X)
+const double FI_MAXWELL_Y = (1. / (M_PI * VPHI_I_Y));     // Valor Máximo de la función de distribución Semi-Maxwelliana Iónica
+const double FE_MAXWELL_X =  (2. / (M_PI * VPHI_E_X));    // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
+const double FE_MAXWELL_Y = (1. / (M_PI * VPHI_E_Y));     // Valor Máximo de la función de distribución Semi-Maxwelliana electrónica
+const double M_I = (RAZON_MASAS * E_MASS);                // masa Ión
+const double X0 = (VFLUX_I * T0);                         //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
+const double CTE_E = (RAZON_MASAS * X0 / (VFLUX_I * T0));
+const double DT = 1.e-5;                                  // Paso temporal
+const double VFLUX_I_magnitud =  sqrt(VFLUX_I * VFLUX_I + VFLUX_I * VFLUX_I); // Velocidad de flujo iónico (m/s)  =  sqrt(2*K_BOLTZMANN*Te/(M_PI*M_I))
+const double vflux_e_magnitud =  sqrt(VFLUX_E_X * VFLUX_E_X + VFLUX_E_Y * VFLUX_E_Y);
+const double Te = (M_PI * 0.5 * E_MASS * pow(VFLUX_E_X, 2) / K_BOLTZMANN);    // Temperatura electrónica inicial (°K)
 
-#define NI03D  (FLUJO_INICIAL / VFLUX_I)
-#define NE03D  (FLUJO_INICIAL / VFLUX_E_X)
-#define LAMBDA_D sqrt(EPSILON_0 * K_BOLTZMANN * Te / (NE03D * pow(E_CHARGE, 2)))  //Longitud de Debye
-#define DELTA_X (LAMBDA_D)   //Paso espacial
-#define L_MAX_X (((J_X-1) * DELTA_X) / X0)                      // Longitud región de simulación
-#define L_MAX_Y (((J_Y-1) * DELTA_X) / X0)                      // Longitud región de simulación
+const double NI03D = (FLUJO_INICIAL / VFLUX_I);
+const double NE03D = (FLUJO_INICIAL / VFLUX_E_X);
+const double LAMBDA_D = sqrt(EPSILON_0 * K_BOLTZMANN * Te / (NE03D * pow(E_CHARGE, 2)));  //Longitud de Debye
+const double DELTA_X = (LAMBDA_D);   //Paso espacial
+const double L_MAX_X = (((J_X-1) * DELTA_X) / X0);                      // Longitud región de simulación
+const double L_MAX_Y = (((J_Y-1) * DELTA_X) / X0);                      // Longitud región de simulación
 
 
 // La mayoria son constantes
@@ -346,7 +346,7 @@ int main() {
 
     clock_t tiempo1  =  clock();
     if(kt % 1000 == 0) {
-      cout << " CPU time 1000  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC<< " sec" << endl;
+      cout << " CPU time " << kt / 1000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC<< " sec" << endl;
       tiempo0  =  clock();
     }
 
