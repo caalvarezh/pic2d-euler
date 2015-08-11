@@ -8,6 +8,8 @@
 #include <fstream>
 #include <fftw3.h>
 
+#define __d {prueba (__LINE__);}
+
 //Magnitudes físicas
 
 #define E_MASS       9.10938291e-31  // Masa del Electrón
@@ -67,7 +69,9 @@
 // (vflujo = sqrt(2K_BOLTZMANNTe/(pi*me))
 
 using namespace std;
-
+void prueba(int d){
+          cout<<"LINE: "<< d <<endl;
+}
 /*
 void   initialize_Particles(double *pos_e, double *vel_e, double *pos_i,
                             double *vel_i, int li, int le);
@@ -105,7 +109,7 @@ void   electric_field(double phi[J_X][J_Y], double E_X[J_X][J_Y],
 
 void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
              int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y], int kt, double hx,
-             int &total_perdidos, double mv2perdidas);
+             int &total_perdidos, double &mv2perdidas);
 
   //void   Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int NSP,
 //              int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y], int kt, double hx);//,
@@ -660,7 +664,7 @@ void electric_field(double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][
 // total_e_perdidos, total_i_perdidos, mv2perdidas,
 void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
     int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y], int kt, double hx,
-    int &total_perdidos, double mv2perdidas) {
+    int &total_perdidos, double &mv2perdidas) {
   int j_x,j_y;
   double temp_x,temp_y,Ep_X, Ep_Y,fact;
   double jr_x,jr_y;
@@ -714,12 +718,13 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
       }
     }
 
-    while(pos[i][Y]>L_MAX_Y) //Ciclo en el eje Y.
+    while(pos[i][Y] > L_MAX_Y) //Ciclo en el eje Y.
       pos[i][Y] = pos[i][Y]-L_MAX_Y;
-
-    while(pos[i][Y]<0.0) //Ciclo en el eje Y.
-      pos[i][Y] = L_MAX_Y+pos[i][Y];
-
+__d
+    while(pos[i][Y] < 0.0) { //Ciclo en el eje Y.
+      pos[i][Y] = L_MAX_Y + pos[i][Y];
+    }
+__d
     if(pos[i][X]>= 0 && pos[i][X]<= L_MAX_X) {
       pos[kk1][X] = pos[i][X];
       pos[kk1][Y] = pos[i][Y];
