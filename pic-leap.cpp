@@ -18,7 +18,7 @@
 #define MAX_SPE      10000           // Limite (computacional) de Superpartículas electrónicas
 #define MAX_SPI      10000           // Limite (computacional) de Superpartículas iónicas
 //#define J_X         65          cambiar?
-#define J_X          65           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+#define J_X          64           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
 //#define J_Y         16          cambiar?
 #define J_Y          16           // Número de puntos de malla Y. Recomendado: Del orden 2^n
 #define ELECTRONS    0
@@ -427,13 +427,13 @@ double create_Velocities_X(double fmax,double vphi) {// función para generar di
 
   v = vmin+(vmax-vmin)*double(rand())/double(RAND_MAX); // Calcular valor aleatorio de v uniformemente distribuido en el rango [vmin,vmax]
   f  = fmax*exp(-(1.0/M_PI)*pow(v/vphi,2));
-
+/*
   if (flag  ==  0) {
     int seed  =  time (NULL);
     srand (seed);
     flag  =  1;
   }
-
+*/
   f_random  =  fmax*double(rand())/double(RAND_MAX);    // Calcular valor aleatorio de f uniformemente distribuido en el rango [0,fmax]
 
   if (f_random > f)
@@ -458,13 +458,13 @@ double create_Velocities_Y(double fmax,double vphi) {// función para generar di
 
   v = vmin + (vmax - vmin) * double(rand())/ double(RAND_MAX); // Calcular valor aleatorio de v uniformemente distribuido en el rango [vmin,vmax]
   f = fmax * exp(-(1.0 / M_PI) * pow(v / vphi, 2));
-
+/*
   if (flag  ==  0) {
     int seed  =  time (NULL);
     srand (seed);
     flag  =  1;
   }
-
+*/
   f_random  =  fmax * double(rand()) / double(RAND_MAX);    // Calcular valor aleatorio de f uniformemente distribuido en el rango [0,fmax]
 
   if (f_random > f) return create_Velocities_Y(fmax, vphi);
@@ -610,6 +610,29 @@ void poisson2D_dirichletX_periodicY(double phi[J_X][J_Y],complex <double> rho[J_
 }
 
 //*********************************************************
+void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
+
+  for (int j = 1; j < J_X - 1; j++) {
+
+    for (int k = 1; k < J_Y - 1; k++) {
+      E_X[j + (k * J_X)] = (phi[(j-1) + (k * J_X)] - phi[(j + 1) + (k * J_X)]) / (2. * hx);
+      E_Y[j + (k * J_X)] = (phi[j + ((k - 1) * J_X)] - phi[j + ((k + 1) * J_X)]) / (2. * hx);
+
+      E_X[k * J_X] = 0;  //Cero en las fronteras X
+      E_Y[k * J_X] = 0;
+      E_X[(J_X-1) + (k * J_X)] = 0;
+      E_Y[(J_X-1) + (k * J_X)] = 0;
+    }
+
+    E_X[j] = (phi[j - 1] - phi[j + 1]) / (2. * hx);
+    E_Y[j] = (phi[j + ((J_Y - 1) * J_X)] - phi[j + J_X]) / (2. * hx);
+
+    E_X[j + ((J_Y - 1) * J_X)] = (phi[(j - 1) + ((J_Y - 1) * J_X)] - phi[(j + 1) + ((J_Y - 1) * J_X)]) / (2. * hx);
+    E_Y[j + ((J_Y - 1) * J_X)] = (phi[j + ((J_Y - 2) * J_X)] - phi[j]) / (2. * hx);
+
+  }
+}
+
 void electric_field(double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][J_Y], double hx) {
 
   for (int j = 1;j<J_X-1;j++) {
@@ -722,6 +745,45 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
   else
     li = li-conteo_perdidas;
 */
+}
+
+
+void Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X, char *archivo_Y) {
+  double Nc = 100;
+  FILE *pFile[2];
+  pFile[0]  =  fopen(archivo_X,"w");
+  pFile[1]  =  fopen(archivo_Y,"w");
+  int suma = 0;
+  int ind = 0;
+  double a;
+
+  for(int i = 0; i < 2 ;i++) {//Max. & min. velocity values.
+    double max = 0;
+    double min = 0;
+    double dv;
+    for (int h = 0; h < NSP; h++) {
+      if(vel[h + (i * NSP)] < min)
+        min = vel[h + (i * NSP)];//Min. Velocity.
+
+      if(vel[h + (i * NSP)] > max)
+        max = vel[h + (i * NSP)];//Max. Velocity.
+    }
+
+    dv  =  (max - min) / Nc;
+    a = min;//Start velocity counter.
+
+    //printf("min = %e max = %e dv =  %e kt = %d #Particulas  =  %d ", min,max, dv,kt, NSP);
+    for(ind = 0; ind < Nc; ind++) {
+      suma  = 0;
+      for (int j = 0; j < NSP; j++) {
+        if(a <=  vel[j + (i * NSP)] && vel[j + (i * NSP)] < a + dv)
+          suma++;
+      }
+      fprintf(pFile[i]," %e  %d  \n", a, suma);
+      a  =  a + dv;
+    }
+    fclose(pFile[i]);
+  }
 }
 
 
