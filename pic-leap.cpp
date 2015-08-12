@@ -178,7 +178,7 @@ int main() {
   //******************
   outEnergia = fopen("Energia","w");
   char buffer[40], bufferb[40], bufferc[40], bufferd[40];
-
+/*
   for(int i  =  0; i<= 80; i++) {
     sprintf(buffer, "fase_ele%d", i);
     outFase_ele[i] = fopen(buffer, "w");
@@ -188,13 +188,13 @@ int main() {
     sprintf(buffer, "fase_ion%d", i);
     outFase_ion[i] = fopen(buffer, "w");
   }
-
+*/
 
   //printf("NI03D = %e \nNE03D = %e \nTemperatura electronica = %e eV \n", NI03D, NE03D, Te * K_BOLTZMANN / (1.602e-19));
   //printf("Longitud de Debye = %e  \nFrecuencia del plasma = %e \n", LAMBDA_D,om_p);
   //printf("Tp = %e \nND = %e \nLX = %e \nLY = %e \n", 2 * M_PI / om_p, ND, Lmax[0], Lmax[1]);
 
-  printf("CTE_E = %e  \ncte_rho = %e  \nTe  =  %e  \nhx*Ld  =  %e  \n",CTE_E,cte_rho, Te, hx*LAMBDA_D );
+  //printf("CTE_E = %e  \ncte_rho = %e  \nTe  =  %e  \nhx*Ld  =  %e  \n",CTE_E,cte_rho, Te, hx*LAMBDA_D );
 
   //printf("dt/T0 = %e    \ndt/T = %e   \nhx/LAMBDA_D = %e \nTiempo vapor. = %d dt \n",dt/t_0,dt/T,hx/(LAMBDA_D/X0), k_MAX_inj);
 
@@ -226,7 +226,7 @@ int main() {
   // puesto que T0*(normalizado) = 1.
 
 
-  printf("X0^3 = %e \nn0i = %e \nlambda/hx = %e \nTemp  =  %e\n", X0*X0*X0, NI03D, LAMBDA_D/X0,K_BOLTZMANN*Te);
+  //printf("X0^3 = %e \nn0i = %e \nlambda/hx = %e \nTemp  =  %e\n", X0*X0*X0, NI03D, LAMBDA_D/X0,K_BOLTZMANN*Te);
   //printf("dt = %e \nMAX_SPE_dt = %d  \n",dt_emision/t_0,MAX_SPI_dt);
   //printf("Energia = %e \n",ET0);
 
@@ -244,13 +244,11 @@ int main() {
 
 
   initialize_Particles (pos_e, vel_e, pos_i, vel_i, li, le);//Velocidades y posiciones iniciales de las partículas (no las libera).
+  clock_t tiempo0  =  clock();
 
-  clock_t tiempo0  =  clock(), t0;
 
-
-  for(int kk  =  0, kt  =  0; kt <= K_total and kt < 5; kt++) {
-    t0 = clock();
-    if(kt % 10000 == 0) {
+  for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
+    if(kt % 50000 == 0) {
       printf("kt = %d\n", kt);
       printf("le = %d   li = %d \n",le, li );
     }
@@ -263,26 +261,16 @@ int main() {
 
     //-----------------------------------------------
     // Calculo de "densidad de carga 2D del plasma"
-
     Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
     Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
-    cout << "time Concentration: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
-    t0 = clock();
-
     for (int j  =  0; j < J_X; j++)
       for (int k  =  0; k < J_Y; k++)
         rho[j][k] =  cte_rho * FACTOR_CARGA_E * (ni[j][k]- ne[j][k]) / n_0;
 
     // Calcular potencial eléctrico en puntos de malla
     poisson2D_dirichletX_periodicY(phi, rho, hx);
-    cout << "time poisson2D_dirichletX_periodicY: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
-    t0 = clock();
-
     // Calcular campo eléctrico en puntos de malla
     electric_field(phi, E_X, E_Y, hx);
-    cout << "time electric_field: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
-    t0 = clock();
-
     // imprimir el potencial electroestatico.
     if(kt % 50000  ==  0) {
       sprintf(buffer,"Poisson%d.data", kt);
@@ -298,7 +286,7 @@ int main() {
       dataFile.close();
     }
 
-    //imprimit la densidad
+   /* //imprimit la densidad
     if(kt % 50000 == 0) {
       // Escribir a archivo
       sprintf(buffer,"n%d.data", kt);
@@ -313,16 +301,11 @@ int main() {
       }
       dataFile.close();
     }
-
+*/
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
 
     Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    cout << "time Motion_e: " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
-    t0 = clock();
     Motion(pos_i, vel_i, li, IONS, E_X, E_Y, kt, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    cout << "time Motion_i : " << ( double(clock() - t0) / CLOCKS_PER_SEC) << endl;
-    t0 = clock();
-
     //Motion_e(pos_e,vel_e,le, E_X, E_Y, total_e_perdidos, mv2perdidas);
     //Motion_i(pos_i,vel_i,li, E_X, E_Y, total_i_perdidos, mv2perdidas);
 
@@ -356,8 +339,8 @@ int main() {
     }//Cierre de calculo de energia
 
     clock_t tiempo1  =  clock();
-    if(kt % 1000 == 0) {
-      cout << " CPU time " << kt / 1000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC<< " sec" << endl;
+    if(kt % 50000 == 0) {
+      cout << " CPU time " << kt / 50000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC<< " sec" << endl;
       tiempo0  =  clock();
     }
 
@@ -686,7 +669,6 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
     fact = FACT_EL;
   else
     fact = FACT_I;
-
   for (int i = 0;i<NSP;i++) {
     jr_x = pos[i][X]/hx;     // Índice (real) de la posición de la superpartícula (X)
     j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
@@ -720,11 +702,11 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
       conteo_perdidas++;
       total_perdidos++;
       if(especie  ==  ELECTRONS) {
-        printf("Electron perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+        //printf("Electron perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
         mv2perdidas+= pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2);
       }
       else {
-        printf("Ion perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+        //printf("Ion perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
         mv2perdidas+= pow( sqrt(vel[i][X]*vel[i][X]+vel[i][Y]*vel[i][Y]) , 2)/(RAZON_MASAS);
       }
     }
@@ -744,6 +726,7 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
     }
 
     //Salida espacio de Fase
+    /*
     if(kt % 10000  ==  0 && especie  ==  ELECTRONS);
     fprintf(outFase_ele[kt/10000]," %e   %e  %e  %e  %e \n",
         kt * DT, pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
@@ -751,7 +734,7 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
     if(kt % 10000  ==  0 && especie  ==  IONS)
       fprintf(outFase_ion[kt/10000]," %e   %e  %e  %e  %e \n",
           kt * DT, pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
-
+    */
   }
 
   NSP -= conteo_perdidas;
@@ -805,7 +788,7 @@ void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
 void Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2] , int NSP, char *archivo_X, char *archivo_Y) {
   double Nc = 100;
   FILE *pFile[2];
-  pFile[0]  =  fopen(archivo_X,"w"); pFile[1]  =  fopen(archivo_Y,"w");
+  //pFile[0]  =  fopen(archivo_X,"w"); pFile[1]  =  fopen(archivo_Y,"w");
   int suma = 0;
   int ind = 0;
   double a;
@@ -833,10 +816,10 @@ void Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2] , int N
         if(a <=  vel[j][i] && vel[j][i] < a + dv)
           suma++;
       }
-      fprintf(pFile[i]," %e  %d  \n", a, suma);
+      //fprintf(pFile[i]," %e  %d  \n", a, suma);
       a  =  a + dv;
     }
-    fclose(pFile[i]);
+    //fclose(pFile[i]);
   }
 }
 /*
