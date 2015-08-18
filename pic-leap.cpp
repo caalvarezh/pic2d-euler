@@ -19,15 +19,11 @@
 
 #define MAX_SPE      10000           // Limite (computacional) de Superpartículas electrónicas
 #define MAX_SPI      10000           // Limite (computacional) de Superpartículas iónicas
-//#define J_X         65          cambiar?
-#define J_X          65           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-//#define J_Y         16          cambiar?
+#define J_X          64           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
 #define J_Y          16           // Número de puntos de malla Y. Recomendado: Del orden 2^n
 #define ELECTRONS    0
 #define IONS         1
-//#define X           0           cambiar?
 #define X            0
-//#define Y           1
 #define Y            1
 #define RAZON_MASAS  1.98e5    // M_I/E_MASS (Plata)
 
@@ -63,18 +59,14 @@ const double DELTA_X = (LAMBDA_D);   //Paso espacial
 const double L_MAX_X = (((J_X-1) * DELTA_X) / X0);                      // Longitud región de simulación
 const double L_MAX_Y = (((J_Y-1) * DELTA_X) / X0);                      // Longitud región de simulación
 
-
-// La mayoria son constantes
-//double  RAZON_MASAS = 1.98e5;     // M_I/E_MASS (Plata)
-// (vflujo = sqrt(2K_BOLTZMANNTe/(pi*me))
-
 using namespace std;
+
 void prueba(int d){
-          cout<<"LINE: "<< d <<endl;
+  cout<<"LINE: "<< d <<endl;
 }
 
 void   initialize_Particles(double *pos_e, double *vel_e, double *pos_i,
-                            double *vel_i, int li, int le);
+    double *vel_i, int li, int le);
 
 double create_Velocities_X(double fmax, double vphi);
 
@@ -83,47 +75,18 @@ double create_Velocities_Y(double fmax, double vphi);
 void   Concentration(double *pos, double *n, int NSP, double hx);
 
 void   poisson2D_dirichletX_periodicY(double *phi, complex <double> *rho,
-                                      double hx);
+    double hx);
 
 void   electric_field(double *phi, double *E_X, double *E_Y, double hx);
 
 void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
-            double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas);
+    double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas);
 
 void   Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X,
-                            char *archivo_Y);
+    char *archivo_Y);
 
-
-/*
-void   initialize_Particles(double pos_e[MAX_SPE][2], double vel_e[MAX_SPE][2],
-                            double pos_i[MAX_SPI][2], double vel_i[MAX_SPI][2],
-                            int li, int le);
-void   Concentration(double pos[MAX_SPE][2], double n[J_X][J_Y], int NSP, double hx);
-
-void   poisson2D_dirichletX_periodicY(double phi[J_X][J_Y],
-                                      complex <double> rho[J_X][J_Y], double hx);
-
-void   electric_field(double phi[J_X][J_Y], double E_X[J_X][J_Y],
-                      double E_Y[J_X][J_Y], double hx);
-
-void  Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int &NSP,
-             int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y], int kt, double hx,
-             int &total_perdidos, double &mv2perdidas);
-
-  //void   Motion(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],  int NSP,
-//              int especie, double E_X[J_X][J_Y], double E_Y[J_X][J_Y], int kt, double hx);//,
-//int total_e_perdidos, int total_i_perdidos, double mv2perdidas);
-
-/*void   Motion_e(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],
-                int NSP, double E_X[J_X][J_Y], double E_Y[J_X][J_Y], int kt);//,
-//int total_e_perdidos, double mv2perdidas);
-
-void   Motion_i(double pos[MAX_SPE][2],  double vel[MAX_SPE][2],
-                int NSP, double E_X[J_X][J_Y], double E_Y[J_X][J_Y],
-                int total_i_perdidos, double mv2perdidas, int kt);
-*/
 void   Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2],
-                            int NSP, char *archivo_X, char *archivo_Y);
+    int NSP, char *archivo_X, char *archivo_Y);
 
 
 
@@ -176,17 +139,17 @@ int main() {
   //******************
   outEnergia = fopen("Energia","w");
   char buffer[40], bufferb[40], bufferc[40], bufferd[40];
-/*
-  for(int i  =  0; i<= 80; i++) {
-    sprintf(buffer, "fase_ele%d", i);
-    outFase_ele[i] = fopen(buffer, "w");
-  }
+  /*
+     for(int i  =  0; i<= 80; i++) {
+     sprintf(buffer, "fase_ele%d", i);
+     outFase_ele[i] = fopen(buffer, "w");
+     }
 
-  for(int i  =  0; i<= 80; i++) {
-    sprintf(buffer, "fase_ion%d", i);
-    outFase_ion[i] = fopen(buffer, "w");
-  }
-*/
+     for(int i  =  0; i<= 80; i++) {
+     sprintf(buffer, "fase_ion%d", i);
+     outFase_ion[i] = fopen(buffer, "w");
+     }
+     */
 
   //printf("NI03D = %e \nNE03D = %e \nTemperatura electronica = %e eV \n", NI03D, NE03D, Te * K_BOLTZMANN / (1.602e-19));
   //printf("Longitud de Debye = %e  \nFrecuencia del plasma = %e \n", LAMBDA_D,om_p);
@@ -273,14 +236,15 @@ int main() {
     Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
     for (int j  =  0; j < J_X; j++)
       for (int k  =  0; k < J_Y; k++)
-        rho[j + (k * J_X)] =  cte_rho * FACTOR_CARGA_E * (ni[j + (k * J_X)]- ne[j + (k * J_X)]) / n_0;
+        rho[j * J_Y + k] = cte_rho * FACTOR_CARGA_E * (ni[j * J_Y + k] - ne[j * J_Y + k]) / n_0;
+
     // Calcular potencial eléctrico en puntos de malla
     poisson2D_dirichletX_periodicY(phi, rho, hx);
-// Calcular campo eléctrico en puntos de malla
+    // Calcular campo eléctrico en puntos de malla
 
     electric_field(phi, E_X, E_Y, hx);
 
-// imprimir el potencial electroestatico.
+    // imprimir el potencial electroestatico.
     if(kt % 50000  ==  0) {
       sprintf(buffer,"Poisson%d.data", kt);
       ofstream dataFile(buffer);
@@ -288,29 +252,29 @@ int main() {
         double thisx  =  j * hx;
         for (int k  =  0; k < J_Y; k++) {
           double thisy  =  k * hx;
-          dataFile << thisx << '\t' << thisy << '\t' << phi[j + (k * J_X)] << '\n';
+          dataFile << thisx << '\t' << thisy << '\t' << phi[(j * J_Y) + k] << '\n';
         }
         dataFile << '\n';
       }
       dataFile.close();
     }
 
-   /* //imprimit la densidad
-    if(kt % 50000 == 0) {
-      // Escribir a archivo
-      sprintf(buffer,"n%d.data", kt);
-      ofstream dataFile(buffer);
-      for (int j  =  0; j < J_X; j++) {
-        double thisx  =  j * hx;
-        for (int k  =  0; k < J_Y; k++) {
-          double thisy  =  k * hx;
-          dataFile << thisx << '\t' << thisy << '\t' << ni[j][k] << '\t'<< ne[j][k] << '\t' << E_X[j][k]<< '\t' << E_Y[j][k] <<'\n';
-        }
-        dataFile << '\n';
-      }
-      dataFile.close();
+    /* //imprimit la densidad
+       if(kt % 50000 == 0) {
+    // Escribir a archivo
+    sprintf(buffer,"n%d.data", kt);
+    ofstream dataFile(buffer);
+    for (int j  =  0; j < J_X; j++) {
+    double thisx  =  j * hx;
+    for (int k  =  0; k < J_Y; k++) {
+    double thisy  =  k * hx;
+    dataFile << thisx << '\t' << thisy << '\t' << ni[j][k] << '\t'<< ne[j][k] << '\t' << E_X[j][k]<< '\t' << E_Y[j][k] <<'\n';
     }
-*/
+    dataFile << '\n';
+    }
+    dataFile.close();
+    }
+    */
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
 
     Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
@@ -335,7 +299,7 @@ int main() {
       //Energía del campo
       for (int r = 0; r < J_X; r++)
         for(int ry = 0; ry < J_Y; ry++)
-          E_field  =  E_field +  (ni[r + (ry * J_X)] - ne[r + (ry * J_X)]) * phi[r + (ry * J_X)] * hx * hx * hx;
+          E_field  =  E_field +  (ni[(r * J_Y) + ry] - ne[(r * J_Y) + ry]) * phi[(r * J_Y) + ry] * hx * hx * hx;
 
       E_field  =  2 * E_field / (M_PI);
 
@@ -344,18 +308,18 @@ int main() {
       //Energia perdida por partícula pérdida
       E_perdida  =   mv2perdidas / M_PI;
 
-      fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt * DT, E_total, E_i, E_e, E_field, total_e_perdidos+total_i_perdidos, E_perdida );
+      fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt * DT, E_total, E_i, E_e, E_field, total_e_perdidos + total_i_perdidos, E_perdida );
     }//Cierre de calculo de energia
 
     clock_t tiempo1  =  clock();
     if(kt % 50000 == 0) {
-      cout << " CPU time " << kt / 50000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC<< " sec" << endl;
+      cout << " CPU time " << kt / 50000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
       tiempo0  =  clock();
     }
 
     //Salida de función de distribución
 
-    if(kt % 50000  ==  0) {
+/*    if(kt % 50000  ==  0) {
       sprintf(buffer,"fdist_ele%dx.data", kt);
       sprintf(bufferb,"fdist_ele%dy.data", kt);
       sprintf(bufferc,"fdist_ion%dx.data", kt);
@@ -363,14 +327,14 @@ int main() {
       Funcion_Distribucion(pos_e,vel_e,le, buffer,  bufferb);
       Funcion_Distribucion(pos_i,vel_i,li, bufferc, bufferd);
     }
-
+*/
   } //Cierre del ciclo principal
 
   fclose(outEnergia);
-  for(int i = 0;i<= 80;i++) {
+  /*for(int i = 0;i<= 80;i++) {
     fclose(outFase_ele[i]);
     fclose(outFase_ion[i]);
-  }
+  }*/
 
   free(pos_e);
   free(pos_i);
@@ -470,17 +434,17 @@ void Concentration (double *pos, double *n, int NSP, double hx) {
   } // Inicializar densidad de carga
 
   for (int i = 0; i < NSP;i++) {
-    jr_x = pos[i]/hx; // indice (real) de la posición de la superpartícula
+    jr_x = pos[i] / hx; // indice (real) de la posición de la superpartícula
     j_x  = int(jr_x);    // indice  inferior (entero) de la celda que contiene a la superpartícula
-    temp_x  =  jr_x-j_x;
+    temp_x  =  jr_x - j_x;
     jr_y = pos[i + MAX_SPE] / hx; // indice (real) de la posición de la superpartícula
     j_y  = int(jr_y);    // indice  inferior (entero) de la celda que contiene a la superpartícula
     temp_y  =  jr_y-j_y;
 
-    n[j_x + (j_y * J_X)] +=  (1.-temp_x)*(1.-temp_y)/(hx*hx*hx);
-    n[(j_x+1) + (j_y * J_X)] +=  temp_x*(1.-temp_y)/(hx*hx*hx);
-    n[j_x + ((j_y + 1) * J_X)] +=  (1.-temp_x)*temp_y/(hx*hx*hx);
-    n[(j_x + 1) + ((j_y + 1) * J_X)] +=  temp_x*temp_y/(hx*hx*hx);
+    n[j_y + j_x * J_Y] += (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
+    n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
+    n[(j_y + 1) + j_x * J_Y] += (1. - temp_x) * temp_y / (hx * hx * hx);
+    n[(j_y + 1) + (j_x + 1) * J_Y] += temp_x * temp_y / (hx * hx * hx);
   }
 }
 
@@ -491,162 +455,79 @@ void Concentration (double *pos, double *n, int NSP, double hx) {
 //
 
 void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho, double hx) {
-    int M=J_X-2,N=J_Y;
-    double h = hx;
-    double hy = hx;
-    double *f;
-    fftw_complex  *f2;
-    fftw_plan p,p_y,p_i,p_yi;
-    f= (double*) fftw_malloc(sizeof(double)* M);
-    f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
-
-    p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
-    p_y = fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);      
-    p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
-    p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
-
-
-    // Columnas FFT
-    for (int k = 0; k < N; k++) {
-        for (int j = 0; j < M; j++)
-            f[j]=rho[(j+1)*N+k].real();
-        fftw_execute(p);
-        for (int j = 0; j < M; j++)
-            rho[(j+1)*N+k].real()=f[j];
-    }
-
-    // Filas FFT
-    for (int j = 0; j < M; j++) {
-        for (int k = 0; k < N; k++)
-            memcpy( &f2[k], &rho[(j+1)*N+k], sizeof( fftw_complex ) ); 
-        fftw_execute(p_y);
-        for (int k = 0; k < N; k++)
-            memcpy( &rho[(j+1)*N+k], &f2[k], sizeof( fftw_complex ) );
-    }
-
-
-
-    // Resolver en el espacio de Fourier
-    complex<double> i(0.0, 1.0);
-    double pi = M_PI;
-    complex<double> Wy = exp(2.0 * pi * i / double(N));
-    complex<double> Wn = 1.0;
-    for (int m = 0; m < M; m++) {
-        for (int n = 0; n < N; n++) {
-            complex<double> denom = h*h*2.0+hy*hy*2.0;
-            denom -= hy*hy*(2*cos((m+1)*pi/(M+1))) + h*h*(Wn + 1.0 / Wn);
-            if (denom != 0.0) 
-                rho[(m+1)*N+n] *= h*h*hy*hy / denom;
-            Wn *= Wy;
-        }
-    }
-
-   // Inversa de las filas
-    for (int j = 0; j < M; j++) {
-        for (int k = 0; k < N; k++)
-            memcpy( &f2[k], &rho[(j+1)*N+k], sizeof( fftw_complex ) );
-        fftw_execute(p_yi);
-        for (int k = 0; k < N; k++)
-        {
-            memcpy( &rho[(j+1)*N+k], &f2[k], sizeof( fftw_complex ) );
-            rho[(j+1)*N+k] /= double(N); //La transformada debe ser normalizada.
-        }
-    }
-
-    //Inversa Columnas FFT
-    for (int k = 0; k < N; k++) {
-        for (int j = 0; j < M; j++)
-            f[j]=rho[(j+1)*N+k].real();
-        fftw_execute(p_i);
-        for (int j = 0; j < M; j++)
-            phi[(j+1)*N+k]=f[j]/double(2*(M+1));
-    }
-
-    for (int k = 0; k < N; k++) 
-    {
-      phi[0*N+k]=0;
-      phi[(J_X-1)*N+k]=0;
-    }
-
-    fftw_destroy_plan(p);
-    fftw_destroy_plan(p_i);
-    fftw_destroy_plan(p_y);
-    fftw_destroy_plan(p_yi);
-    fftw_free(f); fftw_free(f2);
-}
-
-  /*  int M = J_X-2,N = J_Y;
-  double h  =  hx;
-  double hy  =  hx;
+  int M = J_X - 2, N = J_Y;
+  double h = hx;
+  double hy = hx;
   double *f;
   fftw_complex  *f2;
-  fftw_plan p,p_y,p_i,p_yi;
-  f =  (double*) fftw_malloc(sizeof(double)* M);
-  f2  =  (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+  fftw_plan p, p_y, p_i, p_yi;
+  f = (double*) fftw_malloc(sizeof(double)* M);
+  f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
 
-  p  =  fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
-  p_y  =  fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);
-  p_i  =  fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
-  p_yi  =  fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
+  p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
+  p_y = fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);
+  p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
+  p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
 
 
   // Columnas FFT
-  for (int k  =  0; k < N; k++) {
-    for (int j  =  0; j < M; j++)
-      f[j] = rho[(j + 1) + (k * J_X)].real();
+  for (int k = 0; k < N; k++) {
+    for (int j = 0; j < M; j++)
+      f[j] = rho[(j + 1) * N + k].real();
     fftw_execute(p);
-    for (int j  =  0; j < M; j++)
-      rho[(j + 1) + (k * J_X)].real()  =  f[j];
+    for (int j = 0; j < M; j++)
+      rho[(j + 1) * N + k].real() = f[j];
   }
 
   // Filas FFT
-  for (int j  =  0; j < M; j++) {
-    for (int k  =  0; k < N; k++)
-      memcpy( &f2[k], &rho[(j + 1) + (k * J_X)], sizeof( fftw_complex ) );
+  for (int j = 0; j < M; j++) {
+    for (int k = 0; k < N; k++)
+      memcpy( &f2[k], &rho[(j + 1) * N + k], sizeof( fftw_complex ) );
     fftw_execute(p_y);
-    for (int k  =  0; k < N; k++)
-      memcpy( &rho[(j + 1) + (k * J_X)], &f2[k], sizeof( fftw_complex ) );
+    for (int k = 0; k < N; k++)
+      memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
   }
+
+
 
   // Resolver en el espacio de Fourier
   complex<double> i(0.0, 1.0);
-  double pi  =  M_PI;
-  complex<double> Wy  =  exp(2.0 * pi * i / double(N));
-  complex<double> Wn  =  1.0;
-  for (int m  =  0; m < M; m++) {
-    for (int n  =  0; n < N; n++) {
-      complex<double> denom  =  h * h * 2.0 + hy * hy * 2.0;
-      denom -=  hy * hy * (2 * cos((m + 1) * pi / (M + 1))) + h * h * (Wn + 1.0 / Wn);
-      if (denom !=  0.0)
-        rho[(m + 1) + (n * J_X)] *=  h * h * hy * hy / denom;
-      Wn *=  Wy;
+  double pi = M_PI;
+  complex<double> Wy = exp(2.0 * pi * i / double(N));
+  complex<double> Wn = 1.0;
+  for (int m = 0; m < M; m++) {
+    for (int n = 0; n < N; n++) {
+      complex<double> denom = h * h * 2.0 + hy * hy * 2.0;
+      denom -= hy * hy * (2 * cos((m + 1) * pi / (M + 1))) + h * h * (Wn + 1.0 / Wn);
+      if (denom != 0.0)
+        rho[(m + 1) * N + n] *= h * h * hy * hy / denom;
+      Wn *= Wy;
     }
   }
 
   // Inversa de las filas
-  for (int j  =  0; j < M; j++) {
-    for (int k  =  0; k < N; k++)
-      memcpy( &f2[k], &rho[(j + 1) + (k * J_X)], sizeof( fftw_complex ) );
+  for (int j = 0; j < M; j++) {
+    for (int k = 0; k < N; k++)
+      memcpy( &f2[k], &rho[(j + 1) * N + k], sizeof( fftw_complex ) );
     fftw_execute(p_yi);
-    for (int k  =  0; k < N; k++) {
-      memcpy( &rho[(j + 1) + (k * J_X)], &f2[k], sizeof( fftw_complex ) );
-      rho[(j + 1) + (k * J_X)] /=  double(N); //La transformada debe ser normalizada.
+    for (int k = 0; k < N; k++) {
+      memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
+      rho[(j + 1) * N + k] /= double(N); //La transformada debe ser normalizada.
     }
   }
 
   //Inversa Columnas FFT
-  for (int k  =  0; k < N; k++) {
-    for (int j  =  0; j < M; j++)
-      f[j] = rho[(j + 1) + (k * J_X)].real();
-
+  for (int k = 0; k < N; k++) {
+    for (int j = 0; j < M; j++)
+      f[j]=rho[(j + 1) * N + k].real();
     fftw_execute(p_i);
-    for (int j  =  0; j < M; j++)
-      phi[(j + 1) + (k * J_X)] = f[j] / double(2 * (M + 1));
+    for (int j = 0; j < M; j++)
+      phi[(j + 1) * N + k] = f[j] / double(2 * (M + 1));
   }
 
-  for (int k  =  0; k < N; k++) {
-    phi[k * J_X] = 0;
-    phi[(J_X - 1) + (k * J_X)] = 0;
+  for (int k = 0; k < N; k++) {
+    phi[k]=0;
+    phi[(J_X - 1) * N + k]=0;
   }
 
   fftw_destroy_plan(p);
@@ -655,59 +536,34 @@ void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho, double hx
   fftw_destroy_plan(p_yi);
   fftw_free(f); fftw_free(f2);
 }
-*/
+
 //*********************************************************
 void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
 
   for (int j = 1; j < J_X - 1; j++) {
-
     for (int k = 1; k < J_Y - 1; k++) {
-      E_X[j + (k * J_X)] = (phi[(j-1) + (k * J_X)] - phi[(j + 1) + (k * J_X)]) / (2. * hx);
-      E_Y[j + (k * J_X)] = (phi[j + ((k - 1) * J_X)] - phi[j + ((k + 1) * J_X)]) / (2. * hx);
+      E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
+      E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
 
-      E_X[k * J_X] = 0;  //Cero en las fronteras X
-      E_Y[k * J_X] = 0;
-
-      E_X[(J_X-1) + (k * J_X)] = 0;
-      E_Y[(J_X-1) + (k * J_X)] = 0;
+      E_X[k] = 0.0;  //Cero en las fronteras X
+      E_Y[k] = 0.0;
+      E_X[(J_X - 1) * J_Y + k] = 0.0;
+      E_Y[(J_X - 1) * J_Y + k] = 0.0;
     }
 
-    E_X[j] = (phi[j - 1] - phi[j + 1]) / (2. * hx);
-    E_Y[j] = (phi[j + ((J_Y - 1) * J_X)] - phi[j + J_X]) / (2. * hx);
+    E_X[j * J_Y] = (phi[(j - 1) * J_Y] - phi[((j + 1) * J_Y + 0)]) / (2. * hx);
+    E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
 
-    E_X[j + ((J_Y - 1) * J_X)] = (phi[(j - 1) + ((J_Y - 1) * J_X)] - phi[(j + 1) + ((J_Y - 1) * J_X)]) / (2. * hx);
-    E_Y[j + ((J_Y - 1) * J_X)] = (phi[j + ((J_Y - 2) * J_X)] - phi[j]) / (2. * hx);
-
+    E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
+    E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
   }
+
 }
-/*
-void electric_field(double phi[J_X][J_Y], double E_X[J_X][J_Y], double E_Y[J_X][J_Y], double hx) {
 
-  for (int j = 1;j<J_X-1;j++) {
-
-    for (int k = 1;k<J_Y-1;k++) {
-      E_X[j][k] = (phi[j-1][k]-phi[j+1][k])/(2.*hx);
-      E_Y[j][k] = (phi[j][k-1]-phi[j][k+1])/(2.*hx);
-
-      E_X[0][k] = 0;  //Cero en las fronteras X
-      E_Y[0][k] = 0;
-      E_X[J_X-1][k] = 0;
-      E_Y[J_X-1][k] = 0;
-    }
-
-    E_X[j][0] = (phi[j-1][0]-phi[j+1][0])/(2.*hx);
-    E_Y[j][0] = (phi[j][J_Y-1]-phi[j][1])/(2.*hx);
-
-    E_X[j][J_Y-1] = (phi[j-1][J_Y-1]-phi[j+1][J_Y-1])/(2.*hx);
-    E_Y[j][J_Y-1] = (phi[j][J_Y-2]-phi[j][0])/(2.*hx);
-
-  }
-}
-*/
 //*******************************************************
 
 void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
-            double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
+    double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
   int j_x,j_y;
   double temp_x,temp_y,Ep_X, Ep_Y,fact;
   double jr_x,jr_y;
@@ -718,6 +574,7 @@ void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
     fact = FACT_EL;
   else
     fact = FACT_I;
+
   for (int i = 0;i<NSP;i++) {
     jr_x = pos[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
     j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
@@ -726,21 +583,22 @@ void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
     j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
     temp_y  =  jr_y-double(j_y);
 
-    Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x + (j_y * J_X)] +
-      temp_x * (1 - temp_y) * E_X[(j_x + 1) + (j_y * J_X)] +
-      (1 - temp_x) * temp_y * E_X[j_x + ((j_y + 1) * J_X)]+
-      temp_x * temp_y * E_X[(j_x + 1) + ((j_y + 1) * J_X)];
+    Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
+           temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
+           (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
+           temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-    Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x + (j_y * J_X)] +
-      temp_x * (1 - temp_y) * E_Y[(j_x + 1) + (j_y * J_X)] +
-      (1 - temp_x) * temp_y * E_Y[j_x + ((j_y + 1) * J_X)]+
-      temp_x * temp_y * E_Y[(j_x + 1) + ((j_y + 1) * J_X)];
+    Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+           temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
+           (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
+           temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
 
     vel[i] = vel[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
     vel[i + MAX_SPE] = vel[i + MAX_SPE] + CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
 
-    pos[i] = pos[i] + vel[i] * DT;
-    pos[i + MAX_SPE] = pos[i + MAX_SPE] + vel[i + MAX_SPE] * DT;
+    pos[i] += vel[i] * DT;
+    pos[i + MAX_SPE] += vel[i + MAX_SPE] * DT;
 
     if(pos[i]<0) {//Rebote en la pared del material.
       pos[i] = -pos[i];
@@ -756,7 +614,7 @@ void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
       }
       else {
         //printf("Ion perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
-        mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]), 2)/(RAZON_MASAS);
+        mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]), 2) / (RAZON_MASAS);
       }
     }
 
@@ -775,16 +633,7 @@ void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
     }
 
     //Salida espacio de Fase
-    /*
-    if(kt % 10000  ==  0 && especie  ==  ELECTRONS);
-    fprintf(outFase_ele[kt/10000]," %e   %e  %e  %e  %e \n",
-        kt * DT, pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
-
-    if(kt % 10000  ==  0 && especie  ==  IONS)
-      fprintf(outFase_ion[kt/10000]," %e   %e  %e  %e  %e \n",
-          kt * DT, pos[i][X],vel[i][X],pos[i][Y],vel[i][Y]);
-    */
-  }
+ }
 
   NSP -= conteo_perdidas;
 }
@@ -828,40 +677,40 @@ void Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X, ch
 }
 
 /*
-void Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2] , int NSP, char *archivo_X, char *archivo_Y) {
-  double Nc = 100;
-  FILE *pFile[2];
-  //pFile[0]  =  fopen(archivo_X,"w"); pFile[1]  =  fopen(archivo_Y,"w");
-  int suma = 0;
-  int ind = 0;
-  double a;
+   void Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2] , int NSP, char *archivo_X, char *archivo_Y) {
+   double Nc = 100;
+   FILE *pFile[2];
+//pFile[0]  =  fopen(archivo_X,"w"); pFile[1]  =  fopen(archivo_Y,"w");
+int suma = 0;
+int ind = 0;
+double a;
 
-  for(int i = 0;i<2;i++) {//Max. & min. velocity values.
-    double max = 0;
-    double min = 0;
-    double dv;
-    for (int h = 0;h<NSP;h++) {
-      if(vel[h][i]<min)
-        min = vel[h][i];//Min. Velocity.
+for(int i = 0;i<2;i++) {//Max. & min. velocity values.
+double max = 0;
+double min = 0;
+double dv;
+for (int h = 0;h<NSP;h++) {
+if(vel[h][i]<min)
+min = vel[h][i];//Min. Velocity.
 
-      if(vel[h][i]>max)
-        max = vel[h][i];//Max. Velocity.
+if(vel[h][i]>max)
+max = vel[h][i];//Max. Velocity.
 
-    }
+}
 
-    dv  =  (max-min)/Nc;
-    a = min;//Start velocity counter.
+dv  =  (max-min)/Nc;
+a = min;//Start velocity counter.
 
-    //printf("min = %e max = %e dv =  %e kt = %d #Particulas  =  %d ", min,max, dv,kt, NSP);
-    for(ind = 0; ind < Nc;ind++) {
-      suma  = 0;
-      for (int j = 0;j<NSP;j++) {
-        if(a <=  vel[j][i] && vel[j][i] < a + dv)
-          suma++;
-      }
-      //fprintf(pFile[i]," %e  %d  \n", a, suma);
-      a  =  a + dv;
-    }
-    //fclose(pFile[i]);
-  }
+//printf("min = %e max = %e dv =  %e kt = %d #Particulas  =  %d ", min,max, dv,kt, NSP);
+for(ind = 0; ind < Nc;ind++) {
+suma  = 0;
+for (int j = 0;j<NSP;j++) {
+if(a <=  vel[j][i] && vel[j][i] < a + dv)
+suma++;
+}
+//fprintf(pFile[i]," %e  %d  \n", a, suma);
+a  =  a + dv;
+}
+//fclose(pFile[i]);
+}
 }*/
