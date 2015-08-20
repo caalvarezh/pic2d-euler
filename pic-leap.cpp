@@ -19,8 +19,8 @@
 
 #define MAX_SPE      10000           // Limite (computacional) de Superpartículas electrónicas
 #define MAX_SPI      10000           // Limite (computacional) de Superpartículas iónicas
-#define J_X          64           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-#define J_Y          16           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+#define J_X          129           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+#define J_Y          64           // Número de puntos de malla Y. Recomendado: Del orden 2^n
 #define ELECTRONS    0
 #define IONS         1
 #define X            0
