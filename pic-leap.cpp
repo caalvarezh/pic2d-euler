@@ -435,11 +435,11 @@ void Concentration (double *pos, double *n, int NSP, double hx) {
 
   for (int i = 0; i < NSP;i++) {
     jr_x = pos[i] / hx; // indice (real) de la posición de la superpartícula
-    j_x  = int(jr_x);    // indice  inferior (entero) de la celda que contiene a la superpartícula
+    j_x  = (int) jr_x;    // indice  inferior (entero) de la celda que contiene a la superpartícula
     temp_x  =  jr_x - j_x;
     jr_y = pos[i + MAX_SPE] / hx; // indice (real) de la posición de la superpartícula
-    j_y  = int(jr_y);    // indice  inferior (entero) de la celda que contiene a la superpartícula
-    temp_y  =  jr_y-j_y;
+    j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
+    temp_y  =  jr_y - j_y;
 
     n[j_y + j_x * J_Y] += (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
     n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
@@ -618,11 +618,10 @@ void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
       }
     }
 
-    while(pos[i + MAX_SPE] > L_MAX_Y) //Ciclo en el eje Y.
-      pos[i + MAX_SPE] = pos[i + MAX_SPE]-L_MAX_Y;
+    pos[i + MAX_SPE] = fmod(pos[i + MAX_SPE], L_MAX_Y);
 
-    while(pos[i + MAX_SPE] < 0.0) //Ciclo en el eje Y.
-      pos[i + MAX_SPE] = L_MAX_Y + pos[i + MAX_SPE];
+    if(pos[i + MAX_SPE] < 0.0) //Ciclo en el eje Y.
+      pos[i + MAX_SPE] += L_MAX_Y;
 
     if(pos[i] >= 0 && pos[i] <= L_MAX_X) {
       pos[kk1] = pos[i];
