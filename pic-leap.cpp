@@ -575,7 +575,7 @@ void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
   else
     fact = FACT_I;
 
-  for (int i = 0;i<NSP;i++) {
+  for (int i = 0; i < NSP; i++) {
     jr_x = pos[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
     j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
     temp_x = jr_x - double(j_x);
