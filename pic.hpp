@@ -1,7 +1,15 @@
 #ifndef PICLEAP
 #define PICLEAP
 
+#include <iostream>
+#include <cstdlib>
+#include <cstdio>
 #include <cmath>
+#include <complex>
+#include <ctime>
+#include <cstring>
+#include <fstream>
+#include <fftw3.h>
 
 namespace pic {
   #define __d {prueba (__LINE__);}
@@ -64,7 +72,7 @@ namespace pic {
 
   void   Concentration(double *pos, double *n, int NSP, double hx);
 
-  void   poisson2D_dirichletX_periodicY(double *phi, complex <double> *rho,
+  void   poisson2D_dirichletX_periodicY(double *phi, std::complex <double> *rho,
       double hx);
 
   void   electric_field(double *phi, double *E_X, double *E_Y, double hx);
