@@ -3,6 +3,15 @@
 using namespace std;
 using namespace pic;
 
+void write_test_concentration(double *pos, double *n, int NSP, double hx);
+void write_test_poisson(double *phi, complex<double> *rho, double hx);
+void write_test_out_poisson(double *phi, complex<double> *rho);
+void write_test_electric(double *phi, double *E_X, double *E_Y, double hx);
+void write_test_Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
+    double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas);
+void write_test_out_Motion(double *pos, double *vel, int &NSP, double *E_X, double *E_Y,
+    int &total_perdidos, double &mv2perdidas);
+
 int main() {
   //************************
   // Parámetros del sistema
@@ -22,7 +31,7 @@ int main() {
   int     NTSPe, NTSPI, MAX_SPE_dt, MAX_SPI_dt;
   double  cte_rho = pow(E_CHARGE * T0, 2) / (M_I * EPSILON_0 * pow(X0, 3)); //Normalización de EPSILON_0
   double  phi0 = 2. * K_BOLTZMANN * Te / (M_PI * E_CHARGE ), E0 = phi0 / X0;
- // FILE    *outEnergia;
+  // FILE    *outEnergia;
 
 
   //***************************
@@ -53,15 +62,6 @@ int main() {
      outFase_ion[i] = fopen(buffer, "w");
      }
      */
-
-  //printf("NI03D = %e \nNE03D = %e \nTemperatura electronica = %e eV \n", NI03D, NE03D, Te * K_BOLTZMANN / (1.602e-19));
-  //printf("Longitud de Debye = %e  \nFrecuencia del plasma = %e \n", LAMBDA_D,om_p);
-  //printf("Tp = %e \nND = %e \nLX = %e \nLY = %e \n", 2 * M_PI / om_p, ND, Lmax[0], Lmax[1]);
-
-  //printf("CTE_E = %e  \ncte_rho = %e  \nTe  =  %e  \nhx*Ld  =  %e  \n",CTE_E,cte_rho, Te, hx*LAMBDA_D );
-
-  //printf("dt/T0 = %e    \ndt/T = %e   \nhx/LAMBDA_D = %e \nTiempo vapor. = %d dt \n",dt/t_0,dt/T,hx/(LAMBDA_D/X0), k_MAX_inj);
- //    outFase_ele[i] = fopen(buffer, "w");
 
   //****************************************
   // Inicialización de variables del sistema
@@ -103,10 +103,6 @@ int main() {
   // puesto que T0*(normalizado) = 1.
 
 
-  //printf("X0^3 = %e \nn0i = %e \nlambda/hx = %e \nTemp  =  %e\n", X0*X0*X0, NI03D, LAMBDA_D/X0,K_BOLTZMANN*Te);
-  //printf("dt = %e \nMAX_SPE_dt = %d  \n",dt_emision/t_0,MAX_SPI_dt);
-  //printf("Energia = %e \n",ET0);
-
   int Kemision = 20;  //Pasos para liberar partículas
   double dt_emision = Kemision * DT; //Tiempo para liberar partículas
 
@@ -123,11 +119,6 @@ int main() {
   clock_t tiempo0  =  clock();
 
   for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
-    if(kt % 50000 == 0) {
-      printf("kt = %d\n", kt);
-      printf("le = %d   li = %d \n",le, li );
-    }
-
     if(kt <= k_MAX_inj && kt == kk) {// Inyectar superpartículas (i-e)
       le+= MAX_SPE_dt;
       li+= MAX_SPI_dt;
@@ -138,54 +129,41 @@ int main() {
 
     Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
     Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+
+    if(kt % 25000 == 0) {
+      write_test_concentration(pos_e, ne, le, hx);
+      write_test_concentration(pos_i, ni, li, hx);
+    }
+
     for (int j  =  0; j < J_X; j++)
       for (int k  =  0; k < J_Y; k++)
         rho[j * J_Y + k] = cte_rho * FACTOR_CARGA_E * (ni[j * J_Y + k] - ne[j * J_Y + k]) / n_0;
 
     // Calcular potencial eléctrico en puntos de malla
+    if(kt % 25000 == 0) {
+      write_test_poisson(phi, rho, hx);
+    }
     poisson2D_dirichletX_periodicY(phi, rho, hx);
+    if(kt % 25000 == 0) {
+      write_test_out_poisson(phi, rho);
+    }
     // Calcular campo eléctrico en puntos de malla
-
     electric_field(phi, E_X, E_Y, hx);
-
-    // imprimir el potencial electroestatico.
-    if(kt % 50000  ==  0) {
-      cout << "le: " << le << " li: " << li << endl;
-      sprintf(buffer,"Poisson%d.data", kt);
-      ofstream dataFile(buffer);
-      for (int j  =  0; j < J_X; j++) {
-        double thisx  =  j * hx;
-        for (int k  =  0; k < J_Y; k++) {
-          double thisy  =  k * hx;
-          dataFile << thisx << '\t' << thisy << '\t' << phi[(j * J_Y) + k] << '\n';
-        }
-        dataFile << '\n';
-      }
-      dataFile.close();
+    if(kt % 25000 == 0) {
+      write_test_electric(phi, E_X, E_Y, hx);
     }
 
-    /* //imprimit la densidad
-       if(kt % 50000 == 0) {
-    // Escribir a archivo
-    sprintf(buffer,"n%d.data", kt);
-    ofstream dataFile(buffer);
-    for (int j  =  0; j < J_X; j++) {
-    double thisx  =  j * hx;
-    for (int k  =  0; k < J_Y; k++) {
-    double thisy  =  k * hx;
-    dataFile << thisx << '\t' << thisy << '\t' << ni[j][k] << '\t'<< ne[j][k] << '\t' << E_X[j][k]<< '\t' << E_Y[j][k] <<'\n';
-    }
-    dataFile << '\n';
-    }
-    dataFile.close();
-    }
-    */
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
-
-:x
+    if(kt % 25000 == 0) {
+      write_test_Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);
+      write_test_Motion(pos_i, vel_i, li, IONS, E_X, E_Y, kt, hx, total_i_perdidos, mv2perdidas);
+    }
+    Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     Motion(pos_i, vel_i, li, IONS, E_X, E_Y, kt, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    //Motion_e(pos_e,vel_e,le, E_X, E_Y, total_e_perdidos, mv2perdidas);
-    //Motion_i(pos_i,vel_i,li, E_X, E_Y, total_i_perdidos, mv2perdidas);
+    if(kt % 25000 == 0) {
+      write_test_out_Motion(pos_e, vel_e, le, E_X, E_Y, total_e_perdidos, mv2perdidas);
+      write_test_out_Motion(pos_i, vel_i, li, E_X, E_Y, total_i_perdidos, mv2perdidas);
+    }
 
     //Cálculo de energías.
     if(kt % 2000 == 0 && kt > 0) {
@@ -213,34 +191,9 @@ int main() {
       //Energia perdida por partícula pérdida
       E_perdida  =   mv2perdidas / M_PI;
 
- //     fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt * DT, E_total, E_i, E_e, E_field, total_e_perdidos + total_i_perdidos, E_perdida );
     }//Cierre de calculo de energia
 
-    clock_t tiempo1  =  clock();
-    if(kt % 50000 == 0) {
-      cout << " CPU time " << kt / 50000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
-      tiempo0  =  clock();
-    }
-
-    //Salida de función de distribución
-
-/*    if(kt % 50000  ==  0) {
-      sprintf(buffer,"fdist_ele%dx.data", kt);
-      sprintf(bufferb,"fdist_ele%dy.data", kt);
-      sprintf(bufferc,"fdist_ion%dx.data", kt);
-      sprintf(bufferd,"fdist_ion%dy.data", kt);
-      Funcion_Distribucion(pos_e,vel_e,le, buffer,  bufferb);
-      Funcion_Distribucion(pos_i,vel_i,li, bufferc, bufferd);
-    }
-*/
   } //Cierre del ciclo principal
-
-  //fclose(outEnergia);
-  /*for(int i = 0;i<= 80;i++) {
-    fclose(outFase_ele[i]);
-    fclose(outFase_ion[i]);
-  }*/
-
   free(pos_e);
   free(pos_i);
   free(vel_e);
@@ -255,3 +208,108 @@ int main() {
   return (0);
 }// FINAL MAIN
 
+void write_test_concentration(double *pos, double *n, int NSP, double hx) {
+  static int num = 0;
+  char name[40] = "test_concentration";
+  sprintf(name, "%d.data\0", num++);
+  freopen (name, "w", stdout);
+  cout << MAX_SPE * 2 << endl;
+  for(int i = 0; i < MAX_SPE * 2; i++)
+    cout << pos[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << n[i] << " ";
+  cout << endl << NSP << " " << hx << endl;
+  fclose(stdout);
+}
+
+void write_test_poisson(double *phi, complex<double> *rho, double hx) {
+  static int num = 0;
+  char name[40] = "test_poisson";
+  sprintf(name, "%d.data\0", num++);
+  freopen (name, "w", stdout);
+  cout << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << phi[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << rho[i] << " ";
+  cout << endl << hx << endl;
+  fclose(stdout);
+}
+
+void write_test_out_poisson(double *phi, complex<double> *rho) {
+  static int num = 0;
+  char name[40] = "test_out_poisson";
+  sprintf(name, "%d.data\0", num++);
+  freopen (name, "w", stdout);
+  cout << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << phi[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << rho[i] << " ";
+  fclose(stdout);
+}
+
+void write_test_electric(double *phi, double *E_X, double *E_Y, double hx) {
+  static int num = 0;
+  char name[40] = "test_electric";
+  sprintf(name, "%d.data\0", num++);
+  freopen (name, "w", stdout);
+  cout << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << phi[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << E_X[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << E_Y[i] << " ";
+  cout << endl << hx << endl;
+  fclose(stdout);
+}
+
+void write_test_Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
+    double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
+  static int num = 0;
+  char name[40] = "test_Motion";
+  sprintf(name, "%d.data\0", num++);
+  freopen (name, "w", stdout);
+  cout << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << pos[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << vel[i] << " ";
+  cout << endl << NSP << endl << especie << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << E_X[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << E_Y[i] << " ";
+  cout << endl << kt << endl << hx << endl << total_perdidos << endl << mv2perdidas << endl;
+  fclose(stdout);
+}
+
+void write_test_out_Motion(double *pos, double *vel, int &NSP, double *E_X, double *E_Y,
+    int &total_perdidos, double &mv2perdidas) {
+  static int num = 0;
+  char name[40] = "test_out_Motion";
+  sprintf(name, "%d.data\0", num++);
+  freopen (name, "w", stdout);
+  cout << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << pos[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << vel[i] << " ";
+  cout << endl << NSP << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << E_X[i] << " ";
+  cout << endl << J_X * J_Y << endl;
+  for(int i = 0; i < J_X * J_Y; i++)
+    cout << E_Y[i] << " ";
+  cout << endl << total_perdidos << endl << mv2perdidas << endl;
+  fclose(stdout);
+}

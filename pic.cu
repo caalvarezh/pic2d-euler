@@ -1,7 +1,7 @@
-#include "pic.hpp"
+#include "pic_cuda.hpp"
 
 using namespace std;
-namespace pic {
+namespace pic_cuda {
   void prueba(int d){
     cout<<"LINE: "<< d <<endl;
   }
@@ -363,6 +363,157 @@ a  =  a + dv;
 //fclose(pFile[i]);
 }
 }*/
+ void Motione(double *pos, double *vel, int &NSP, int especie, double *E_X,
+      double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
+    int j_x,j_y;
+    double temp_x,temp_y,Ep_X, Ep_Y,fact;
+    double jr_x,jr_y;
+    int kk1 = 0;
+    int conteo_perdidas = 0;
+
+    if(especie ==  ELECTRONS)
+      fact = FACT_EL;
+    else
+      fact = FACT_I;
+
+    for (int i = 0; i < NSP; i++) {
+      jr_x = pos[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
+      j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+      temp_x = jr_x - double(j_x);
+      jr_y = pos[i + MAX_SPE] / hx;     // Índice (real) de la posición de la superpartícula (Y)
+      j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+      temp_y  =  jr_y-double(j_y);
+
+      Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
+
+      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
+
+      vel[i] = vel[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
+      vel[i + MAX_SPE] = vel[i + MAX_SPE] + CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
+
+      pos[i] += vel[i] * DT;
+      pos[i + MAX_SPE] += vel[i + MAX_SPE] * DT;
+
+      if(pos[i]<0) {//Rebote en la pared del material.
+        pos[i] = -pos[i];
+        vel[i] = -vel[i];
+      }
+
+      if (pos[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
+        conteo_perdidas++;
+        total_perdidos++;
+        if(especie  ==  ELECTRONS) {
+          //printf("Electron perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]) , 2);
+        }
+        else {
+          //printf("Ion perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]), 2) / (RAZON_MASAS);
+        }
+      }
+
+      pos[i + MAX_SPE] = fmod(pos[i + MAX_SPE], L_MAX_Y);
+
+      if(pos[i + MAX_SPE] < 0.0) //Ciclo en el eje Y.
+        pos[i + MAX_SPE] += L_MAX_Y;
+
+      if(pos[i] >= 0 && pos[i] <= L_MAX_X) {
+        pos[kk1] = pos[i];
+        pos[kk1 + MAX_SPE] = pos[i + MAX_SPE];
+        vel[kk1] = vel[i];
+        vel[kk1 + MAX_SPE] = vel[i + MAX_SPE];
+        kk1++;
+      }
+
+      //Salida espacio de Fase
+    }
+
+    NSP -= conteo_perdidas;
+  }
+
+
+void Motioni(double *pos, double *vel, int &NSP, int especie, double *E_X,
+      double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
+    int j_x,j_y;
+    double temp_x,temp_y,Ep_X, Ep_Y,fact;
+    double jr_x,jr_y;
+    int kk1 = 0;
+    int conteo_perdidas = 0;
+
+    if(especie ==  ELECTRONS)
+      fact = FACT_EL;
+    else
+      fact = FACT_I;
+
+    for (int i = 0; i < NSP; i++) {
+      jr_x = pos[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
+      j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+      temp_x = jr_x - double(j_x);
+      jr_y = pos[i + MAX_SPE] / hx;     // Índice (real) de la posición de la superpartícula (Y)
+      j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+      temp_y  =  jr_y-double(j_y);
+
+      Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
+
+      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
+
+      vel[i] = vel[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
+      vel[i + MAX_SPE] = vel[i + MAX_SPE] + CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
+
+      pos[i] += vel[i] * DT;
+      pos[i + MAX_SPE] += vel[i + MAX_SPE] * DT;
+
+      if(pos[i]<0) {//Rebote en la pared del material.
+        pos[i] = -pos[i];
+        vel[i] = -vel[i];
+      }
+
+      if (pos[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
+        conteo_perdidas++;
+        total_perdidos++;
+        if(especie  ==  ELECTRONS) {
+          //printf("Electron perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]) , 2);
+        }
+        else {
+          //printf("Ion perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]), 2) / (RAZON_MASAS);
+        }
+      }
+
+      pos[i + MAX_SPE] = fmod(pos[i + MAX_SPE], L_MAX_Y);
+
+      if(pos[i + MAX_SPE] < 0.0) //Ciclo en el eje Y.
+        pos[i + MAX_SPE] += L_MAX_Y;
+
+      if(pos[i] >= 0 && pos[i] <= L_MAX_X) {
+        pos[kk1] = pos[i];
+        pos[kk1 + MAX_SPE] = pos[i + MAX_SPE];
+        vel[kk1] = vel[i];
+        vel[kk1 + MAX_SPE] = vel[i + MAX_SPE];
+        kk1++;
+      }
+
+      //Salida espacio de Fase
+    }
+
+    NSP -= conteo_perdidas;
+  }
+
 
 
 }
