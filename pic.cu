@@ -1,4 +1,6 @@
 #include "pic_cuda.hpp"
+#define BLOCK_SIZE 32
+
 
 using namespace std;
 namespace pic_cuda {
@@ -95,6 +97,50 @@ namespace pic_cuda {
       n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
       n[(j_y + 1) + j_x * J_Y] += (1. - temp_x) * temp_y / (hx * hx * hx);
       n[(j_y + 1) + (j_x + 1) * J_Y] += temp_x * temp_y / (hx * hx * hx);
+    }
+  }
+
+  __host__
+  void H_Concentration (double *h_pos, double *h_n, int NSP, double hx) {
+    int size  = MAX_SPE * 2 * sizeof(double);
+    int size1 = J_X * J_Y * sizeof(double);
+    double *d_pos, *d_n;
+    cudaMalloc(&d_pos, size);
+    cudaMalloc(&d_n, size1);
+    cudaMemcpy(d_pos, h_pos, size, cudaMemcpyHostToDevice);
+    cudaMemset(d_n, 0, size1);
+
+    dim3 dimBlock(BLOCK_SIZE,1,1);
+    dim3 dimGrid(ceil(NSP/float(BLOCK_SIZE)),1, 1);
+    D_Concentration<<< dimGrid, dimBlock >>(d_pos, d_n, NSP, hx);
+    cudaDeviceSynchronize();
+    cudaMemcpy(h_n, d_n, size1, cudaMemcpyDeviceToHost);
+    cudaFree(d_pos);
+    cudaFree(d_n);
+  }
+
+  __global__
+  void D_Concentration (double *d_pos, double *d_n, int NSP,double hx) {
+    int i = blockIdx.x*blockDim.x+threadIdx.x;
+    int j_x, j_y;
+    double temp_x, temp_y;
+    double jr_x, jr_y;
+    if(i < NSP) {
+      jr_x = d_pos[i] / hx; // indice (real) de la posición de la superpartícula
+      j_x  = (int) jr_x;    // indice  inferior (entero) de la celda que contiene a la superpartícula
+      temp_x  =  jr_x - j_x;
+      jr_y = d_pos[i + MAX_SPE] / hx; // indice (real) de la posición de la superpartícula
+      j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
+      temp_y  =  jr_y - j_y;
+      __threadfence();
+      d_n[j_y + j_x * J_Y] += (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
+      //__syncthreads();
+      d_n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
+      //__syncthreads();
+      d_n[(j_y + 1) + j_x * J_Y] += (1. - temp_x) * temp_y / (hx * hx * hx);
+      //__syncthreads();
+      d_n[(j_y + 1) + (j_x + 1) * J_Y] += temp_x * temp_y / (hx * hx * hx);
+      //__syncthreads();
     }
   }
 
@@ -211,6 +257,81 @@ namespace pic_cuda {
   }
 
   //*******************************************************
+  __global__
+  void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
+      double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
+    int j_x,j_y;
+    double temp_x,temp_y,Ep_X, Ep_Y,fact;
+    double jr_x,jr_y;
+    int kk1 = 0;
+    int conteo_perdidas = 0;
+
+    if(especie ==  ELECTRONS)
+      fact = FACT_EL;
+    else
+      fact = FACT_I;
+
+    for (int i = 0; i < NSP; i++) {
+      jr_x = pos[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
+      j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+      temp_x = jr_x - double(j_x);
+      jr_y = pos[i + MAX_SPE] / hx;     // Índice (real) de la posición de la superpartícula (Y)
+      j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+      temp_y  =  jr_y-double(j_y);
+
+      Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
+
+      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
+
+      vel[i] = vel[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
+      vel[i + MAX_SPE] = vel[i + MAX_SPE] + CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
+
+      pos[i] += vel[i] * DT;
+      pos[i + MAX_SPE] += vel[i + MAX_SPE] * DT;
+
+      if(pos[i]<0) {//Rebote en la pared del material.
+        pos[i] = -pos[i];
+        vel[i] = -vel[i];
+      }
+
+      if (pos[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
+        conteo_perdidas++;
+        total_perdidos++;
+        if(especie  ==  ELECTRONS) {
+          //printf("Electron perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]) , 2);
+        }
+        else {
+          //printf("Ion perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel[i] * vel[i] + vel[i + MAX_SPE] * vel[i + MAX_SPE]), 2) / (RAZON_MASAS);
+        }
+      }
+
+      pos[i + MAX_SPE] = fmod(pos[i + MAX_SPE], L_MAX_Y);
+
+      if(pos[i + MAX_SPE] < 0.0) //Ciclo en el eje Y.
+        pos[i + MAX_SPE] += L_MAX_Y;
+
+      if(pos[i] >= 0 && pos[i] <= L_MAX_X) {
+        pos[kk1] = pos[i];
+        pos[kk1 + MAX_SPE] = pos[i + MAX_SPE];
+        vel[kk1] = vel[i];
+        vel[kk1 + MAX_SPE] = vel[i + MAX_SPE];
+        kk1++;
+      }
+
+      //Salida espacio de Fase
+    }
+
+    NSP -= conteo_perdidas;
+  }
 
   void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
       double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {

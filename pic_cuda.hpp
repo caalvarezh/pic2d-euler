@@ -72,6 +72,10 @@ namespace pic_cuda {
 
   void   Concentration(double *pos, double *n, int NSP, double hx);
 
+  void   h_Concentration(double *h_pos, double *h_n, int NSP, double hx);
+
+  void   d_Concentration(double *d_pos, double *d_n, int NSP, double hx);
+
   void   poisson2D_dirichletX_periodicY(double *phi, std::complex <double> *rho,
       double hx);
 
