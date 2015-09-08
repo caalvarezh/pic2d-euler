@@ -153,6 +153,20 @@ int main() {
       write_test_electric(phi, E_X, E_Y, hx);
     }
 
+    if(kt % 50000  ==  0) {
+      sprintf(buffer,"Poisson%d.data", kt);
+      ofstream dataFile(buffer);
+      for (int j  =  0; j < J_X; j++) {
+        double thisx  =  j * hx;
+        for (int k  =  0; k < J_Y; k++) {
+          double thisy  =  k * hx;
+          dataFile << thisx << '\t' << thisy << '\t' << phi[(j * J_Y) + k] << '\n';
+        }
+        dataFile << '\n';
+      }
+      dataFile.close();
+    }
+
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     if(kt % 25000 == 0) {
       write_test_Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);
@@ -210,8 +224,8 @@ int main() {
 
 void write_test_concentration(double *pos, double *n, int NSP, double hx) {
   static int num = 0;
-  char name[40] = "test_concentration";
-  sprintf(name, "%d.data\0", num++);
+  char name[40];
+  sprintf(name, "test_concentration%d.data", num++);
   freopen (name, "w", stdout);
   cout << MAX_SPE * 2 << endl;
   for(int i = 0; i < MAX_SPE * 2; i++)
@@ -225,8 +239,8 @@ void write_test_concentration(double *pos, double *n, int NSP, double hx) {
 
 void write_test_poisson(double *phi, complex<double> *rho, double hx) {
   static int num = 0;
-  char name[40] = "test_poisson";
-  sprintf(name, "%d.data\0", num++);
+  char name[40];
+  sprintf(name, "test_poisson%d.data", num++);
   freopen (name, "w", stdout);
   cout << J_X * J_Y << endl;
   for(int i = 0; i < J_X * J_Y; i++)
@@ -240,8 +254,8 @@ void write_test_poisson(double *phi, complex<double> *rho, double hx) {
 
 void write_test_out_poisson(double *phi, complex<double> *rho) {
   static int num = 0;
-  char name[40] = "test_out_poisson";
-  sprintf(name, "%d.data\0", num++);
+  char name[40];
+  sprintf(name, "test_out_poisson%d.data", num++);
   freopen (name, "w", stdout);
   cout << J_X * J_Y << endl;
   for(int i = 0; i < J_X * J_Y; i++)
@@ -254,8 +268,8 @@ void write_test_out_poisson(double *phi, complex<double> *rho) {
 
 void write_test_electric(double *phi, double *E_X, double *E_Y, double hx) {
   static int num = 0;
-  char name[40] = "test_electric";
-  sprintf(name, "%d.data\0", num++);
+  char name[40];
+  sprintf(name, "test_electric%d.data", num++);
   freopen (name, "w", stdout);
   cout << J_X * J_Y << endl;
   for(int i = 0; i < J_X * J_Y; i++)
@@ -273,8 +287,8 @@ void write_test_electric(double *phi, double *E_X, double *E_Y, double hx) {
 void write_test_Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
     double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
   static int num = 0;
-  char name[40] = "test_Motion";
-  sprintf(name, "%d.data\0", num++);
+  char name[40];
+  sprintf(name, "test_Motion%d.data", num++);
   freopen (name, "w", stdout);
   cout << J_X * J_Y << endl;
   for(int i = 0; i < J_X * J_Y; i++)
@@ -295,8 +309,8 @@ void write_test_Motion(double *pos, double *vel, int &NSP, int especie, double *
 void write_test_out_Motion(double *pos, double *vel, int &NSP, double *E_X, double *E_Y,
     int &total_perdidos, double &mv2perdidas) {
   static int num = 0;
-  char name[40] = "test_out_Motion";
-  sprintf(name, "%d.data\0", num++);
+  char name[40] = "";
+  sprintf(name, "test_out_Motion%d.data", num++);
   freopen (name, "w", stdout);
   cout << J_X * J_Y << endl;
   for(int i = 0; i < J_X * J_Y; i++)
