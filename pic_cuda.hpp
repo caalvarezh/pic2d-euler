@@ -63,6 +63,8 @@ namespace pic_cuda {
 
   void prueba(int d);
 
+  __device__ double atomicAdd(double* address, double val);
+
   void   initialize_Particles(double *pos_e, double *vel_e, double *pos_i,
       double *vel_i, int li, int le);
 
@@ -72,9 +74,9 @@ namespace pic_cuda {
 
   void   Concentration(double *pos, double *n, int NSP, double hx);
 
-  void   h_Concentration(double *h_pos, double *h_n, int NSP, double hx);
+  void   H_Concentration(double *h_pos, double *h_n, int NSP, double hx);
 
-  void   d_Concentration(double *d_pos, double *d_n, int NSP, double hx);
+  __global__ void   D_Concentration(double *d_pos, double *d_n, int NSP, double hx);
 
   void   poisson2D_dirichletX_periodicY(double *phi, std::complex <double> *rho,
       double hx);

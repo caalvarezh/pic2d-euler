@@ -1,6 +1,7 @@
 *.out
 *.txt
 *.sum
+*.mio
 *.in
 *.o
 *.data
