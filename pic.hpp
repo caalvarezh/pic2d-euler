@@ -78,7 +78,7 @@ namespace pic {
   void   electric_field(double *phi, double *E_X, double *E_Y, double hx);
 
   void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
-      double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas);
+      double *E_Y, double hx, int &total_perdidos, double &mv2perdidas);
 
   void   Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X,
       char *archivo_Y);

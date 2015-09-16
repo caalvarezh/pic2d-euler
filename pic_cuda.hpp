@@ -12,6 +12,7 @@
 #include <fftw3.h>
 
 namespace pic_cuda {
+  using namespace std;
   #define __d {prueba (__LINE__);}
 
   const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
@@ -56,7 +57,7 @@ namespace pic_cuda {
 
   const double NI03D = (FLUJO_INICIAL / VFLUX_I);
   const double NE03D = (FLUJO_INICIAL / VFLUX_E_X);
-  const double LAMBDA_D = std::sqrt(EPSILON_0 * K_BOLTZMANN * Te / (NE03D * std::pow(E_CHARGE, 2)));  //Longitud de Debye
+  const double LAMBDA_D = sqrt(EPSILON_0 * K_BOLTZMANN * Te / (NE03D * pow(E_CHARGE, 2)));  //Longitud de Debye
   const double DELTA_X = (LAMBDA_D);   //Paso espacial
   const double L_MAX_X = (((J_X-1) * DELTA_X) / X0);                      // Longitud región de simulación
   const double L_MAX_Y = (((J_Y-1) * DELTA_X) / X0);                      // Longitud región de simulación
@@ -83,8 +84,11 @@ namespace pic_cuda {
 
   void   electric_field(double *phi, double *E_X, double *E_Y, double hx);
 
-  void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
-      double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas);
+  __global__ void D_Motion(double *pos, double *vel, int &NSP, int fact, double *E_X,
+      double *E_Y, double hx, double L_MAX_X, double L_MAX_Y);
+
+  void H_Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
+      double *E_Y, double hx, int &total_perdidos, double &mv2perdidas);
 
   void   Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X,
       char *archivo_Y);

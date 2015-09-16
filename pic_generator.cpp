@@ -8,8 +8,8 @@ void write_test_poisson(double *phi, complex<double> *rho, double hx);
 void write_test_out_poisson(double *phi, complex<double> *rho);
 void write_test_electric(double *phi, double *E_X, double *E_Y, double hx);
 void write_test_Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
-    double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas);
-void write_test_out_Motion(double *pos, double *vel, int &NSP, double *E_X, double *E_Y,
+    double *E_Y, double hx, int &total_perdidos, double &mv2perdidas);
+void write_test_out_Motion(double *pos, double *vel, int &NSP,
     int &total_perdidos, double &mv2perdidas);
 
 int main() {
@@ -169,14 +169,14 @@ int main() {
 
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     if(kt % 25000 == 0) {
-      write_test_Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);
-      write_test_Motion(pos_i, vel_i, li, IONS, E_X, E_Y, kt, hx, total_i_perdidos, mv2perdidas);
+      write_test_Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);
+      write_test_Motion(pos_i, vel_i, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);
     }
-    Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, kt, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    Motion(pos_i, vel_i, li, IONS, E_X, E_Y, kt, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    Motion(pos_i, vel_i, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     if(kt % 25000 == 0) {
-      write_test_out_Motion(pos_e, vel_e, le, E_X, E_Y, total_e_perdidos, mv2perdidas);
-      write_test_out_Motion(pos_i, vel_i, li, E_X, E_Y, total_i_perdidos, mv2perdidas);
+      write_test_out_Motion(pos_e, vel_e, le, total_e_perdidos, mv2perdidas);
+      write_test_out_Motion(pos_i, vel_i, li, total_i_perdidos, mv2perdidas);
     }
 
     //Cálculo de energías.
@@ -285,16 +285,16 @@ void write_test_electric(double *phi, double *E_X, double *E_Y, double hx) {
 }
 
 void write_test_Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
-    double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
+    double *E_Y, double hx, int &total_perdidos, double &mv2perdidas) {
   static int num = 0;
   char name[40];
   sprintf(name, "test_Motion%d.data", num++);
   freopen (name, "w", stdout);
-  cout << J_X * J_Y << endl;
-  for(int i = 0; i < J_X * J_Y; i++)
+  cout << MAX_SPE * 2 << endl;
+  for(int i = 0; i < MAX_SPE * 2; i++)
     cout << pos[i] << " ";
-  cout << endl << J_X * J_Y << endl;
-  for(int i = 0; i < J_X * J_Y; i++)
+  cout << endl << MAX_SPE * 2 << endl;
+  for(int i = 0; i < MAX_SPE * 2; i++)
     cout << vel[i] << " ";
   cout << endl << NSP << endl << especie << endl << J_X * J_Y << endl;
   for(int i = 0; i < J_X * J_Y; i++)
@@ -302,28 +302,23 @@ void write_test_Motion(double *pos, double *vel, int &NSP, int especie, double *
   cout << endl << J_X * J_Y << endl;
   for(int i = 0; i < J_X * J_Y; i++)
     cout << E_Y[i] << " ";
-  cout << endl << kt << endl << hx << endl << total_perdidos << endl << mv2perdidas << endl;
+  cout << endl << hx << endl << total_perdidos << endl << mv2perdidas << endl;
   fclose(stdout);
 }
 
-void write_test_out_Motion(double *pos, double *vel, int &NSP, double *E_X, double *E_Y,
+void write_test_out_Motion(double *pos, double *vel, int &NSP,
     int &total_perdidos, double &mv2perdidas) {
   static int num = 0;
   char name[40] = "";
   sprintf(name, "test_out_Motion%d.data", num++);
   freopen (name, "w", stdout);
-  cout << J_X * J_Y << endl;
-  for(int i = 0; i < J_X * J_Y; i++)
+  cout << MAX_SPE * 2 << endl;
+  for(int i = 0; i < MAX_SPE * 2; i++)
     cout << pos[i] << " ";
-  cout << endl << J_X * J_Y << endl;
-  for(int i = 0; i < J_X * J_Y; i++)
+  cout << endl << MAX_SPE * 2 << endl;
+  for(int i = 0; i < MAX_SPE * 2; i++)
     cout << vel[i] << " ";
-  cout << endl << NSP << endl << J_X * J_Y << endl;
-  for(int i = 0; i < J_X * J_Y; i++)
-    cout << E_X[i] << " ";
-  cout << endl << J_X * J_Y << endl;
-  for(int i = 0; i < J_X * J_Y; i++)
-    cout << E_Y[i] << " ";
-  cout << endl << total_perdidos << endl << mv2perdidas << endl;
+  cout << endl << NSP << endl;
+  cout << total_perdidos << endl << mv2perdidas << endl;
   fclose(stdout);
 }

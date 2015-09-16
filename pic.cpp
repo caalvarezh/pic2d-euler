@@ -213,7 +213,7 @@ namespace pic {
   //*******************************************************
 
   void Motion(double *pos, double *vel, int &NSP, int especie, double *E_X,
-      double *E_Y, int kt, double hx, int &total_perdidos, double &mv2perdidas) {
+      double *E_Y, double hx, int &total_perdidos, double &mv2perdidas) {
     int j_x,j_y;
     double temp_x,temp_y,Ep_X, Ep_Y,fact;
     double jr_x,jr_y;

@@ -5,7 +5,7 @@ CUDA_FLAGS := -arch=compute_35
 
 all: pic_leap pic_generator pic_test
 
-test: pic_test pic_generator
+test: pic_test
 
 pic_leap: pic_leap.cpp
 	$(CXX) pic_leap.cpp -o pic_leap.mio $(C_FLAGS)
@@ -17,4 +17,4 @@ pic_test: pic_test.cu
 	$(CUDA) $(CUDA_FLAGS) pic_test.cu -o pic_test.mio $(C_FLAGS)
 
 clean:
-	rm -rf *.mio *.data
+	rm -rf *.mio *.data *.out
