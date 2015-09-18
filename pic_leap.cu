@@ -8,6 +8,7 @@ int main() {
   //************************
   // Parámetros del sistema
   //************************
+  clock_t tiempo0  =  clock();
 
   int le = 0, li = 0;
   double  t_0, x_0;
@@ -42,25 +43,6 @@ int main() {
   //******************
   //outEnergia = fopen("Energia","w");
   char buffer[40], bufferb[40], bufferc[40], bufferd[40];
-  /*
-     for(int i  =  0; i<= 80; i++) {
-     sprintf(buffer, "fase_ele%d", i);
-     }
-
-     for(int i  =  0; i<= 80; i++) {
-     sprintf(buffer, "fase_ion%d", i);
-     outFase_ion[i] = fopen(buffer, "w");
-     }
-     */
-
-  //printf("NI03D = %e \nNE03D = %e \nTemperatura electronica = %e eV \n", NI03D, NE03D, Te * K_BOLTZMANN / (1.602e-19));
-  //printf("Longitud de Debye = %e  \nFrecuencia del plasma = %e \n", LAMBDA_D,om_p);
-  //printf("Tp = %e \nND = %e \nLX = %e \nLY = %e \n", 2 * M_PI / om_p, ND, Lmax[0], Lmax[1]);
-
-  //printf("CTE_E = %e  \ncte_rho = %e  \nTe  =  %e  \nhx*Ld  =  %e  \n",CTE_E,cte_rho, Te, hx*LAMBDA_D );
-
-  //printf("dt/T0 = %e    \ndt/T = %e   \nhx/LAMBDA_D = %e \nTiempo vapor. = %d dt \n",dt/t_0,dt/T,hx/(LAMBDA_D/X0), k_MAX_inj);
- //    outFase_ele[i] = fopen(buffer, "w");
 
   //****************************************
   // Inicialización de variables del sistema
@@ -100,11 +82,6 @@ int main() {
   // Inyectadas por unidad de tiempo,
   // puesto que T0*(normalizado) = 1.
 
-
-  //printf("X0^3 = %e \nn0i = %e \nlambda/hx = %e \nTemp  =  %e\n", X0*X0*X0, NI03D, LAMBDA_D/X0,K_BOLTZMANN*Te);
-  //printf("dt = %e \nMAX_SPE_dt = %d  \n",dt_emision/t_0,MAX_SPI_dt);
-  //printf("Energia = %e \n",ET0);
-
   int Kemision = 20;  //Pasos para liberar partículas
   double dt_emision = Kemision * DT; //Tiempo para liberar partículas
 
@@ -118,7 +95,6 @@ int main() {
   K_total = Ntv * k_MAX_inj;
 
   initialize_Particles (pos_e, vel_e, pos_i, vel_i, li, le);//Velocidades y posiciones iniciales de las partículas (no las libera).
-  clock_t tiempo0  =  clock();
 
   for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
     /*if(kt % 50000 == 0) {
@@ -211,22 +187,7 @@ int main() {
 
     //Salida de función de distribución
 
-/*    if(kt % 50000  ==  0) {
-      sprintf(buffer,"fdist_ele%dx.data", kt);
-      sprintf(bufferb,"fdist_ele%dy.data", kt);
-      sprintf(bufferc,"fdist_ion%dx.data", kt);
-      sprintf(bufferd,"fdist_ion%dy.data", kt);
-      Funcion_Distribucion(pos_e,vel_e,le, buffer,  bufferb);
-      Funcion_Distribucion(pos_i,vel_i,li, bufferc, bufferd);
-    }
-*/
   } //Cierre del ciclo principal
-
-  //fclose(outEnergia);
-  /*for(int i = 0;i<= 80;i++) {
-    fclose(outFase_ele[i]);
-    fclose(outFase_ion[i]);
-  }*/
 
   free(pos_e);
   free(pos_i);
@@ -238,6 +199,7 @@ int main() {
   free(E_X);
   free(E_Y);
   free(rho);
+  cout << " CPU time  = " << double(clock() - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
 
   return (0);
 }// FINAL MAIN
