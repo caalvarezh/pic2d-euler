@@ -42,25 +42,29 @@ int main() {
   //ARCHIVOS DE SALIDA
   //******************
   //outEnergia = fopen("Energia","w");
-  char buffer[40], bufferb[40], bufferc[40], bufferd[40];
+  char buffer[40];//, bufferb[40], bufferc[40], bufferd[40];
 
   //****************************************
   // Inicialización de variables del sistema
   //****************************************
-  int size = MAX_SPE * 2 * sizeof(double);
-  int size1 = MAX_SPI * 2 * sizeof(double);
+  int size = MAX_SPE * sizeof(double);
+  int size1 = MAX_SPI * sizeof(double);
   int size2 = J_X * J_Y * sizeof(double);
   int size3 = J_X * J_Y * sizeof(complex<double>);
 
-  double *pos_e, *pos_i, *vel_e, *vel_i, *ne, *ni;
+  double *pos_e_x, *pos_e_y, *pos_i_x, *pos_i_y, *vel_e_x, *vel_e_y, *vel_i_x, *vel_i_y, *ne, *ni;
   double *phi, *E_X, *E_Y;
   complex<double> *rho;
-  double  E_i,E_e,E_field,E_total,E_perdida;
+  //double  E_i,E_e,E_field,E_total,E_perdida;
 
-  pos_e = (double *) malloc(size);
-  pos_i = (double *) malloc(size1);
-  vel_e = (double *) malloc(size);
-  vel_i = (double *) malloc(size1);
+  pos_e_x = (double *) malloc(size);
+  pos_i_x = (double *) malloc(size1);
+  vel_e_x = (double *) malloc(size);
+  vel_i_x = (double *) malloc(size1);
+  pos_e_y = (double *) malloc(size);
+  pos_i_y = (double *) malloc(size1);
+  vel_e_y = (double *) malloc(size);
+  vel_i_y = (double *) malloc(size1);
   ne    = (double *) malloc(size2);
   ni    = (double *) malloc(size2);
   phi   = (double *) malloc(size2);
@@ -94,7 +98,8 @@ int main() {
   k_MAX_inj = t_0 / DT;
   K_total = Ntv * k_MAX_inj;
 
-  initialize_Particles (pos_e, vel_e, pos_i, vel_i, li, le);//Velocidades y posiciones iniciales de las partículas (no las libera).
+  initialize_Particles (pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, FE_MAXWELL_X, FE_MAXWELL_Y, VPHI_E_X, VPHI_E_Y);//Velocidades y posiciones iniciales de las partículas (no las libera).
+  initialize_Particles (pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, FI_MAXWELL_X, FI_MAXWELL_Y, VPHI_I_X, VPHI_I_Y);//Velocidades y posiciones iniciales de las partículas (no las libera).
 
   for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
     /*if(kt % 50000 == 0) {
@@ -110,8 +115,8 @@ int main() {
     //-----------------------------------------------
     // Calculo de "densidad de carga 2D del plasma"
 
-    H_Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
-    H_Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+    H_Concentration (pos_e_x, pos_e_y, ne, le, hx);// Calcular concentración de superpartículas electrónicas
+    H_Concentration (pos_i_x, pos_i_y, ni, li, hx);// Calcular concentración de superpartículas Iónicas
     //pic::Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
     //pic::Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
 
@@ -145,13 +150,13 @@ int main() {
     }
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
 
-    H_Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    H_Motion(pos_i, vel_i, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     //pic::Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     //pic::Motion(pos_i, vel_i, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
 
     //Cálculo de energías.
-    if(kt % 2000 == 0 && kt > 0) {
+    /*if(kt % 2000 == 0 && kt > 0) {
       E_i = 0; //Se inicializan las variables de la energía
       E_e = 0;
       E_field = 0;
@@ -177,7 +182,7 @@ int main() {
       E_perdida  =   mv2perdidas / M_PI;
 
  //     fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt * DT, E_total, E_i, E_e, E_field, total_e_perdidos + total_i_perdidos, E_perdida );
-    }//Cierre de calculo de energia
+    }*///Cierre de calculo de energia
 
     /*clock_t tiempo1  =  clock();
     if(kt % 50000 == 0) {
@@ -189,10 +194,14 @@ int main() {
 
   } //Cierre del ciclo principal
 
-  free(pos_e);
-  free(pos_i);
-  free(vel_e);
-  free(vel_i);
+  free(pos_e_x);
+  free(pos_e_y);
+  free(pos_i_x);
+  free(pos_i_y);
+  free(vel_e_x);
+  free(vel_e_y);
+  free(vel_i_x);
+  free(vel_i_y);
   free(ne);
   free(ni);
   free(phi);
