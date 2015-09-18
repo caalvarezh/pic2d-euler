@@ -1,7 +1,8 @@
+#include "pic.cu"
 #include "pic.cpp"
 
 using namespace std;
-using namespace pic;
+using namespace pic_cuda;
 
 int main() {
   //************************
@@ -15,12 +16,10 @@ int main() {
   double  mv2perdidas = 0;
 
   double  ND = NE03D * pow(LAMBDA_D,3);                          //Parámetro del plasma
-  int     NTe = 1e5, NTI = 1e5;                                  //Número de partículas "reales"
   int     k_MAX_inj;   //Tiempo máximo de inyección
   int     K_total;     //Tiempo total
   int     Ntv = 8;
   int     NTSPe, NTSPI, MAX_SPE_dt, MAX_SPI_dt;
-  double  cte_rho = pow(E_CHARGE * T0, 2) / (M_I * EPSILON_0 * pow(X0, 3)); //Normalización de EPSILON_0
   double  phi0 = 2. * K_BOLTZMANN * Te / (M_PI * E_CHARGE ), E0 = phi0 / X0;
  // FILE    *outEnergia;
 
@@ -94,7 +93,6 @@ int main() {
   t_0 = 1;
   x_0 = 1;
   hx = DELTA_X / X0;                            // Paso espacial
-  double n_0 = n0 * X0 * X0 * X0;                   // Densidad de partículas
   NTSPe = NTe / FACTOR_CARGA_E;
   NTSPI = NTI / FACTOR_CARGA_I; // Número total de superpartículas
   // Inyectadas en un tiempo T0.
@@ -123,11 +121,11 @@ int main() {
   clock_t tiempo0  =  clock();
 
   for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
-    cout << kt << endl;
-    if(kt % 50000 == 0) {
+    /*if(kt % 50000 == 0) {
       printf("kt = %d\n", kt);
       printf("le = %d   li = %d \n",le, li );
-    }
+    }*/
+
     if(kt <= k_MAX_inj && kt == kk) {// Inyectar superpartículas (i-e)
       le+= MAX_SPE_dt;
       li+= MAX_SPI_dt;
@@ -136,21 +134,27 @@ int main() {
     //-----------------------------------------------
     // Calculo de "densidad de carga 2D del plasma"
 
-    Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
-    Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
-    for (int j  =  0; j < J_X; j++)
+    H_Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
+    H_Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+    //pic::Concentration (pos_e, ne, le, hx);// Calcular concentración de superpartículas electrónicas
+    //pic::Concentration (pos_i, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+
+    //H_rhoKernel(ne, ni, rho);
+     for (int j  =  0; j < J_X; j++)
       for (int k  =  0; k < J_Y; k++)
         rho[j * J_Y + k] = cte_rho * FACTOR_CARGA_E * (ni[j * J_Y + k] - ne[j * J_Y + k]) / n_0;
 
     // Calcular potencial eléctrico en puntos de malla
-    poisson2D_dirichletX_periodicY(phi, rho, hx);
+    //poisson2D_dirichletX_periodicY(phi, rho, hx);
+    pic::poisson2D_dirichletX_periodicY(phi, rho, hx);
     // Calcular campo eléctrico en puntos de malla
 
-    electric_field(phi, E_X, E_Y, hx);
+    H_electric_field(phi, E_X, E_Y, hx);
+    //pic::electric_field(phi, E_X, E_Y, hx);
 
     // imprimir el potencial electroestatico.
     if(kt % 50000  ==  0) {
-      cout << "le: " << le << " li: " << li << endl;
+      //cout << "le: " << le << " li: " << li << endl;
       sprintf(buffer,"Poisson%d.data", kt);
       ofstream dataFile(buffer);
       for (int j  =  0; j < J_X; j++) {
@@ -163,29 +167,12 @@ int main() {
       }
       dataFile.close();
     }
-
-    /* //imprimit la densidad
-       if(kt % 50000 == 0) {
-    // Escribir a archivo
-    sprintf(buffer,"n%d.data", kt);
-    ofstream dataFile(buffer);
-    for (int j  =  0; j < J_X; j++) {
-    double thisx  =  j * hx;
-    for (int k  =  0; k < J_Y; k++) {
-    double thisy  =  k * hx;
-    dataFile << thisx << '\t' << thisy << '\t' << ni[j][k] << '\t'<< ne[j][k] << '\t' << E_X[j][k]<< '\t' << E_Y[j][k] <<'\n';
-    }
-    dataFile << '\n';
-    }
-    dataFile.close();
-    }
-    */
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
 
-    Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    Motion(pos_i, vel_i, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    //Motion_e(pos_e,vel_e,le, E_X, E_Y, total_e_perdidos, mv2perdidas);
-    //Motion_i(pos_i,vel_i,li, E_X, E_Y, total_i_perdidos, mv2perdidas);
+    H_Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    H_Motion(pos_i, vel_i, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    //pic::Motion(pos_e, vel_e, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    //pic::Motion(pos_i, vel_i, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
 
     //Cálculo de energías.
     if(kt % 2000 == 0 && kt > 0) {
@@ -216,11 +203,11 @@ int main() {
  //     fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt * DT, E_total, E_i, E_e, E_field, total_e_perdidos + total_i_perdidos, E_perdida );
     }//Cierre de calculo de energia
 
-    clock_t tiempo1  =  clock();
+    /*clock_t tiempo1  =  clock();
     if(kt % 50000 == 0) {
       cout << " CPU time " << kt / 50000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
       tiempo0  =  clock();
-    }
+    }*/
 
     //Salida de función de distribución
 

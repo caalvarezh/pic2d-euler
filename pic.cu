@@ -9,18 +9,18 @@ namespace pic_cuda {
   }
 
   __device__
-  double atomicAdd(double* address, double val) {
-    unsigned long long int* address_as_ull =
-      (unsigned long long int*)address;
-    unsigned long long int old = *address_as_ull, assumed;
-    do {
-      assumed = old;
-      old = atomicCAS(address_as_ull, assumed,
-          __double_as_longlong(val +
-            __longlong_as_double(assumed)));
-    } while (assumed != old);
-    return __longlong_as_double(old);
-  }
+    double atomicAdd(double* address, double val) {
+      unsigned long long int* address_as_ull =
+        (unsigned long long int*)address;
+      unsigned long long int old = *address_as_ull, assumed;
+      do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+            __double_as_longlong(val +
+              __longlong_as_double(assumed)));
+      } while (assumed != old);
+      return __longlong_as_double(old);
+    }
 
   void initialize_Particles (double *pos_e, double *vel_e, double *pos_i, double *vel_i, int li, int le) {
     for (int i = 0;i<MAX_SPE;i++) {
@@ -133,30 +133,53 @@ namespace pic_cuda {
   }
 
   __global__
-  void D_Concentration (double *d_pos, double *d_n, int NSP,double hx) {
-    int i = blockIdx.x*blockDim.x+threadIdx.x;
-    int j_x, j_y;
-    double temp_x, temp_y, tmp;
-    double jr_x, jr_y;
-    if(i < NSP) {
-      jr_x = d_pos[i] / hx; // indice (real) de la posición de la superpartícula
-      j_x  = (int) jr_x;    // indice  inferior (entero) de la celda que contiene a la superpartícula
-      temp_x  =  jr_x - j_x;
-      jr_y = d_pos[i + MAX_SPE] / hx; // indice (real) de la posición de la superpartícula
-      j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
-      temp_y  =  jr_y - j_y;
-      __threadfence();
-      tmp = (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
-      atomicAdd(&d_n[j_y + j_x * J_Y], tmp);
-      tmp = temp_x * (1. - temp_y) / (hx * hx * hx);
-      atomicAdd(&d_n[j_y + (j_x + 1) * J_Y], tmp);
-      tmp = (1. - temp_x) * temp_y / (hx * hx * hx);
-      atomicAdd(&d_n[(j_y + 1) + j_x * J_Y], tmp);
-      tmp = temp_x * temp_y / (hx * hx * hx);
-      atomicAdd(&d_n[(j_y + 1) + (j_x + 1) * J_Y], tmp);
+    void D_Concentration (double *d_pos, double *d_n, int NSP,double hx) {
+      int i = blockIdx.x*blockDim.x+threadIdx.x;
+      int j_x, j_y;
+      double temp_x, temp_y, tmp;
+      double jr_x, jr_y;
+      if(i < NSP) {
+        jr_x = d_pos[i] / hx; // indice (real) de la posición de la superpartícula
+        j_x  = (int) jr_x;    // indice  inferior (entero) de la celda que contiene a la superpartícula
+        temp_x  =  jr_x - j_x;
+        jr_y = d_pos[i + MAX_SPE] / hx; // indice (real) de la posición de la superpartícula
+        j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
+        temp_y  =  jr_y - j_y;
+        __threadfence();
+        tmp = (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
+        atomicAdd(&d_n[j_y + j_x * J_Y], tmp);
+        tmp = temp_x * (1. - temp_y) / (hx * hx * hx);
+        atomicAdd(&d_n[j_y + (j_x + 1) * J_Y], tmp);
+        tmp = (1. - temp_x) * temp_y / (hx * hx * hx);
+        atomicAdd(&d_n[(j_y + 1) + j_x * J_Y], tmp);
+        tmp = temp_x * temp_y / (hx * hx * hx);
+        atomicAdd(&d_n[(j_y + 1) + (j_x + 1) * J_Y], tmp);
+      }
+    }
+
+  __global__
+  void D_rhoKernel(double *ne, double *ni, double *rho_d, double cte_rho) {
+    int j = blockIdx.x*blockDim.x+threadIdx.x;
+    int i = blockIdx.y*blockDim.y+threadIdx.y;
+    int index;
+    index = (i*J_Y+j);
+    if((i < J_X) && (j < J_Y)) {
+      rho_d[index] = cte_rho * FACTOR_CARGA_E * (ni[index] - ne[index]) / n_0;
     }
   }
 
+  void H_rhoKernel (double *ne, double *ni, double *rho_h) {
+    int size1 = J_X * J_Y * sizeof(double);
+    double *rho_d;
+    cudaMalloc(&rho_d, size1);
+    cudaMemcpy(rho_d, rho_h, size1, cudaMemcpyHostToDevice);
+    dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE,1);
+    dim3 dimGrid(ceil(J_Y / (double)BLOCK_SIZE) ,ceil(J_Y / (double) BLOCK_SIZE), 1);
+    D_rhoKernel<<< dimGrid, dimBlock >>>(ne, ni, rho_d, cte_rho);
+    cudaDeviceSynchronize();
+    cudaMemcpy(rho_h,rho_d, size1, cudaMemcpyDeviceToHost);
+    cudaFree(rho_d);
+  }
 
   //***********************************************************************
   //Cálculo del Potencial Electrostático en cada uno de los puntos de malla
@@ -168,15 +191,17 @@ namespace pic_cuda {
     double h = hx;
     double hy = hx;
     double *f;
-    fftw_complex  *f2;
-    fftw_plan p, p_y, p_i, p_yi;
-    f = (double*) fftw_malloc(sizeof(double)* M);
-    f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+    //fftw_complex  *f2;
+
+    //f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+
+    fftw_plan p, p_i;
+
+    f = (double*) fftw_malloc(sizeof(double)* N);
+    complex<double> *buff_rho = (complex<double> *) malloc( sizeof(complex<double>) * M);
 
     p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
-    p_y = fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);
     p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
-    p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
 
 
     // Columnas FFT
@@ -188,16 +213,32 @@ namespace pic_cuda {
         rho[(j + 1) * N + k].real() = f[j];
     }
 
+
+    //   printVectorToFile(f,M);
+
     // Filas FFT
+    cufftDoubleComplex *f2_d;
+    cufftHandle p_y, p_yi;
+    cudaMalloc((void**)&f2_d, sizeof(cufftDoubleComplex) * N);
+    int size2 = sizeof(cufftDoubleComplex) * N;
+    cufftPlan1d(&p_y, N,CUFFT_Z2Z,1);
+    cufftPlan1d(&p_yi,N,CUFFT_Z2Z,1);
+
     for (int j = 0; j < M; j++) {
-      for (int k = 0; k < N; k++)
-        memcpy( &f2[k], &rho[(j + 1) * N + k], sizeof( fftw_complex ) );
-      fftw_execute(p_y);
-      for (int k = 0; k < N; k++)
-        memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
+      for (int k = 0; k < N; k++) {
+        buff_rho[k] = rho[(j + 1) * N + k];
+      }
+
+      cudaMemcpy(&f2_d, &buff_rho, size2, cudaMemcpyHostToDevice);
+      cufftExecZ2Z(p_y,f2_d,f2_d,CUFFT_FORWARD);
+      cudaMemcpy(&buff_rho, &f2_d, size2, cudaMemcpyDeviceToHost);
+
+      for (int k = 0; k < N; k++) {
+        rho[(j + 1) * N + k] = buff_rho[k];
+      }
     }
 
-
+    //   printComplexVectorToFile(f2, N);
 
     // Resolver en el espacio de Fourier
     complex<double> i(0.0, 1.0);
@@ -217,11 +258,13 @@ namespace pic_cuda {
     // Inversa de las filas
     for (int j = 0; j < M; j++) {
       for (int k = 0; k < N; k++)
-        memcpy( &f2[k], &rho[(j + 1) * N + k], sizeof( fftw_complex ) );
-      fftw_execute(p_yi);
+        buff_rho[k] = rho[(j + 1) * N + k];
+      cudaMemcpy(&f2_d, &buff_rho, size2, cudaMemcpyHostToDevice);
+      //fftw_execute(p_yi);
+      cufftExecZ2Z(p_yi,f2_d,f2_d,CUFFT_INVERSE);
+      cudaMemcpy(&buff_rho, &f2_d, size2, cudaMemcpyDeviceToHost);
       for (int k = 0; k < N; k++) {
-        memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
-        rho[(j + 1) * N + k] /= double(N); //La transformada debe ser normalizada.
+        rho[(j + 1) * N + k] = buff_rho[k] / double(N); //La transformada debe ser normalizada.
       }
     }
 
@@ -232,7 +275,9 @@ namespace pic_cuda {
       fftw_execute(p_i);
       for (int j = 0; j < M; j++)
         phi[(j + 1) * N + k] = f[j] / double(2 * (M + 1));
-    }
+    } // pasar a cuda..
+
+    //Aqui es importante pasar el phi de la función para el potencial
 
     for (int k = 0; k < N; k++) {
       phi[k]=0;
@@ -240,83 +285,106 @@ namespace pic_cuda {
     }
 
     fftw_destroy_plan(p);
+    cufftDestroy(p_y);
+    cufftDestroy(p_yi);
     fftw_destroy_plan(p_i);
-    fftw_destroy_plan(p_y);
-    fftw_destroy_plan(p_yi);
-    fftw_free(f); fftw_free(f2);
+
+    fftw_free(f);
+    cudaFree(f2_d);
   }
 
   //*********************************************************
-  void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
-
-    for (int j = 1; j < J_X - 1; j++) {
-      for (int k = 1; k < J_Y - 1; k++) {
-        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
-        E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
-
-        E_X[k] = 0.0;  //Cero en las fronteras X
-        E_Y[k] = 0.0;
-        E_X[(J_X - 1) * J_Y + k] = 0.0;
-        E_Y[(J_X - 1) * J_Y + k] = 0.0;
+  __global__
+    void D_electric_field (double *d_phi, double *d_E_X, double *d_E_Y, double hx) {
+      int j = (blockIdx.x * blockDim.x + threadIdx.x)+1;
+      if(j < J_X - 1) {
+        for (int k = 1; k < J_Y - 1; k++) {
+          d_E_X[j * J_Y + k] = (d_phi[(j - 1) * J_Y + k] - d_phi[(j + 1) * J_Y + k]) / (2. * hx);
+          d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + (k - 1)] - d_phi[j * J_Y + (k + 1)]) / (2. * hx);
+          d_E_X[k] = 0.0; //Cero en las fronteras X
+          d_E_Y[k] = 0.0;
+          d_E_X[(J_X - 1) * J_Y + k] = 0.0;
+          d_E_Y[(J_X - 1) * J_Y + k] = 0.0;
+        }
+        d_E_X[j * J_Y + 0] = (d_phi[(j - 1) * J_Y] - d_phi[((j + 1) * J_Y)]) / (2. * hx);
+        d_E_Y[j * J_Y + 0] = (d_phi[j * J_Y + (J_Y - 1)] - d_phi[j * J_Y + 1]) / (2. * hx);
+        d_E_X[j * J_Y + (J_Y - 1)] = (d_phi[(j - 1) * J_Y + (J_Y - 1)] - d_phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
+        d_E_Y[j * J_Y + (J_Y - 1)] = (d_phi[j * J_Y + (J_Y - 2)] - d_phi[j * J_Y]) / (2. * hx);
       }
-
-      E_X[j * J_Y] = (phi[(j - 1) * J_Y] - phi[((j + 1) * J_Y + 0)]) / (2. * hx);
-      E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
-
-      E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
-      E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
     }
 
+  void H_electric_field (double *h_phi, double *h_E_X, double *h_E_Y, double hx) {
+    int size1 = J_X * J_Y * sizeof(double);
+    double *d_E_X, *d_E_Y, *d_phi;
+
+    cudaMalloc(&d_E_X, size1);
+    cudaMalloc(&d_E_Y, size1);
+    cudaMalloc(&d_phi, size1);
+    cudaMemcpy(d_phi, h_phi, size1, cudaMemcpyHostToDevice);
+    cudaMemset(d_E_X, 0, size1);
+    cudaMemset(d_E_Y, 0, size1);
+
+    dim3 dimBlock(BLOCK_SIZE, 1, 1);
+    dim3 dimGrid3(ceil(float(J_X) / BLOCK_SIZE), 1, 1);
+
+    D_electric_field<<< dimGrid3, dimBlock >>> (d_phi, d_E_X, d_E_Y, hx);
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(h_E_X,d_E_X, size1, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_E_Y,d_E_Y, size1, cudaMemcpyDeviceToHost);
+    cudaFree(d_E_X);
+    cudaFree(d_E_Y);
+    cudaFree(d_phi);
   }
 
   __global__
-  void D_Motion(double *pos, double *vel, bool *visit, int NSP, int fact, double *E_X,
-      double *E_Y, double hx, double L_MAX_X, double L_MAX_Y) {
-    int j_x,j_y;
-    double temp_x,temp_y,Ep_X, Ep_Y;
-    double jr_x,jr_y;
-    int i = blockIdx.x*blockDim.x+threadIdx.x;
-    if ( i < NSP) {
-      jr_x = pos[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
-      j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
-      temp_x = jr_x - double(j_x);
-      jr_y = pos[i + MAX_SPE] / hx;     // Índice (real) de la posición de la superpartícula (Y)
-      j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
-      temp_y  =  jr_y-double(j_y);
+    void D_Motion(double *pos, double *vel, bool *visit, int NSP, int fact, double *E_X,
+        double *E_Y, double hx, double L_MAX_X, double L_MAX_Y) {
+      int j_x,j_y;
+      double temp_x,temp_y,Ep_X, Ep_Y;
+      double jr_x,jr_y;
+      int i = blockIdx.x * blockDim.x + threadIdx.x;
+      if ( i < NSP) {
+        jr_x = pos[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
+        j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+        temp_x = jr_x - double(j_x);
+        jr_y = pos[i + MAX_SPE] / hx;     // Índice (real) de la posición de la superpartícula (Y)
+        j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+        temp_y  =  jr_y-double(j_y);
 
-      Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
-        temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
-        (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
-        temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
+        Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
+          temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
+          (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
+          temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
-        temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
-        (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
-        temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+        Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+          temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
+          (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
+          temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
 
 
-      vel[i] = vel[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
-      vel[i + MAX_SPE] = vel[i + MAX_SPE] + CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
+        vel[i] += CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
+        vel[i + MAX_SPE] += CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
 
-      pos[i] += vel[i] * DT;
-      pos[i + MAX_SPE] += vel[i + MAX_SPE] * DT;
+        pos[i] += vel[i] * DT;
+        pos[i + MAX_SPE] += vel[i + MAX_SPE] * DT;
 
-      if(pos[i] < 0) {//Rebote en la pared del material.
-        pos[i] = -pos[i];
-        vel[i] = -vel[i];
+        if(pos[i] < 0) {//Rebote en la pared del material.
+          pos[i] *= -1;
+          vel[i] *= -1;
+        }
+
+        if (pos[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
+          visit[i] = false;
+        }
+
+        pos[i + MAX_SPE] = fmod(pos[i + MAX_SPE], L_MAX_Y);
+
+        if(pos[i + MAX_SPE] < 0.0) //Ciclo en el eje Y.
+          pos[i + MAX_SPE] += L_MAX_Y;
+
       }
-
-      if (pos[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
-        visit[i] = false;
-      }
-
-      pos[i + MAX_SPE] = fmod(pos[i + MAX_SPE], L_MAX_Y);
-
-      if(pos[i + MAX_SPE] < 0.0) //Ciclo en el eje Y.
-        pos[i + MAX_SPE] += L_MAX_Y;
-
     }
-  }
 
   void H_Motion(double *h_pos, double *h_vel, int &NSP, int especie, double *h_E_X,
       double *h_E_Y, double hx, int &total_perdidos, double &mv2perdidas) {
@@ -352,8 +420,8 @@ namespace pic_cuda {
     D_Motion<<< dimGrid, dimBlock >>>(d_pos, d_vel, d_visit, NSP, fact, d_E_X, d_E_Y, hx, L_MAX_X, L_MAX_Y);
     cudaDeviceSynchronize();
     cudaMemcpy(h_pos, d_pos, size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_pos, d_vel, size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_visit, d_visit, size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_vel, d_vel, size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_visit, d_visit, size / 2, cudaMemcpyDeviceToHost);
     cudaFree(d_pos);
     cudaFree(d_vel);
     cudaFree(d_E_X);
@@ -382,7 +450,7 @@ namespace pic_cuda {
       }
     }
     free(h_visit);
-      //Salida espacio de Fase
+    //Salida espacio de Fase
     total_perdidos += conteo_perdidas;
     NSP -= conteo_perdidas;
   }

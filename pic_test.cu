@@ -88,9 +88,9 @@ bool test_motion(int test_num, bool parallel = true) {
   cout << "..." << endl;
   if(parallel) {
     pic_cuda::H_Motion(pos, vel, NSP, especie, E_X, E_Y, hx, total_perdidos, mv2perdidas);
-    sprintf(name, "test_out_Motion%d.data", test_num);
+    /*sprintf(name, "test_out_Motion%d.data", test_num);
     freopen (name, "r", stdin);
-    cout << "Reading from " << name << endl;
+    //cout << "Reading from " << name << endl;
 
     cin >> pos_size;
     double out_pos;
@@ -104,7 +104,7 @@ bool test_motion(int test_num, bool parallel = true) {
     double out_vel;
     for(int i = 0; i < vel_size; i++) {
       cin >> out_vel;
-      if(abs(vel[i] - out_vel) > 10e3)
+      if(abs(vel[i] - out_vel) > 10e-3)
         cout << "Error in vel at " << i << " with " << vel[i] << " != " << out_vel << endl;
     }
 
@@ -120,7 +120,7 @@ bool test_motion(int test_num, bool parallel = true) {
       cout << "Error in total_perdidos " << total_perdidos << " " << out_total_perdidos << endl;
     if(abs(mv2perdidas - out_mv2perdidas) > 10e-3)
       cout << "Error in mv2perdidas " << mv2perdidas << " " << out_mv2perdidas << endl;
-    fclose(stdin);
+    fclose(stdin);*/
 
   } else {
     pic::Motion(pos, vel, NSP, especie, E_X, E_Y, hx, total_perdidos, mv2perdidas);
@@ -134,26 +134,26 @@ bool test_motion(int test_num, bool parallel = true) {
 
 
 int main() {
-  int max_test = 1;
+  int max_test = 64;
   clock_t t = clock();
   for(int i = 0; i < max_test; i++) {
     cout << "Running test " << i << ":" << endl;
-    if(test_motion(i))
+    test_motion(i);
       //cout << "ERROR IN PARALLEL" << endl;
-      cout << "Test " << i << " passed." << endl;
+      //cout << "Test " << i << " passed." << endl;
   }
-  /*t = clock() - t;
+  t = clock() - t;
   double a = ((float)t)/CLOCKS_PER_SEC;
   cout << "Parallel: " << a << endl;
   t = clock();
   for(int i = 0; i < max_test; i++) {
     cout << "Running test Sec " << i << ":" << endl;
-    test_concentration(i, false);
+    test_motion(i, false);
       //cout << "Test " << i << " passed." << endl;
   }
   t = clock() - t;
   a = ((float)t)/CLOCKS_PER_SEC;
   cout << "Secuential: " << a << endl;
-*/
+
   return 0;
 }

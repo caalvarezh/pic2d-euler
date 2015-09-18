@@ -10,6 +10,8 @@
 #include <cstring>
 #include <fstream>
 #include <fftw3.h>
+#include <cuda_runtime_api.h>
+#include <cufft.h>
 
 namespace pic_cuda {
   using namespace std;
@@ -62,6 +64,11 @@ namespace pic_cuda {
   const double L_MAX_X = (((J_X-1) * DELTA_X) / X0);                      // Longitud región de simulación
   const double L_MAX_Y = (((J_Y-1) * DELTA_X) / X0);                      // Longitud región de simulación
 
+  const double cte_rho = pow(E_CHARGE * T0, 2) / (M_I * EPSILON_0 * pow(X0, 3)); //Normalización de EPSILON_0
+  const int    NTe = 1e5;
+  const int    NTI = 1e5;                                  //Número de partículas "reales"
+  const double n_0 = double( NTe);                   // Densidad de partículas
+
   void prueba(int d);
 
   __device__ double atomicAdd(double* address, double val);
@@ -79,10 +86,15 @@ namespace pic_cuda {
 
   __global__ void   D_Concentration(double *d_pos, double *d_n, int NSP, double hx);
 
-  void   poisson2D_dirichletX_periodicY(double *phi, std::complex <double> *rho,
-      double hx);
+  void H_rhoKernel (double *ne, double *ni, complex<double> *rho_h);
 
-  void   electric_field(double *phi, double *E_X, double *E_Y, double hx);
+   __global__ void D_rhoKernel(double *ne, double *ni, complex<double> *rho_d, double cte_rho);
+
+  void   poisson2D_dirichletX_periodicY(double *phi, std::complex<double> *rho, double hx);
+
+  void   H_electric_field (double *h_phi, double *h_E_X, double *h_E_Y, double hx);
+
+  __global__ void D_electric_field (double *d_phi, double *d_E_X, double *d_E_Y, double hx);
 
   __global__ void D_Motion(double *pos, double *vel, int &NSP, int fact, double *E_X,
       double *E_Y, double hx, double L_MAX_X, double L_MAX_Y);
