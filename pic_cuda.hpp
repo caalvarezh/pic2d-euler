@@ -19,8 +19,8 @@ namespace pic_cuda {
 
   const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
   const int MAX_SPI     = 10000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 129;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 64;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 513; //129           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 64;  //64         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   const int X           = 0;
@@ -67,7 +67,7 @@ namespace pic_cuda {
   const double cte_rho = pow(E_CHARGE * T0, 2) / (M_I * EPSILON_0 * pow(X0, 3)); //Normalización de EPSILON_0
   const int    NTe = 1e5;
   const int    NTI = 1e5;                                  //Número de partículas "reales"
-  const double n_0 = double( NTe);                   // Densidad de partículas
+  const double n_0 = double(NTe) / FACTOR_CARGA_E;                   // Densidad de partículas
 
   void prueba(int d);
 

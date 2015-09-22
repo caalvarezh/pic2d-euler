@@ -1,5 +1,6 @@
 #include "pic_cuda.hpp"
 #define BLOCK_SIZE 1024
+#define BLOCK_SIZE2 32
 
 
 using namespace std;
@@ -149,8 +150,8 @@ namespace pic_cuda {
     double *rho_d;
     cudaMalloc(&rho_d, size1);
     cudaMemcpy(rho_d, rho_h, size1, cudaMemcpyHostToDevice);
-    dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE,1);
-    dim3 dimGrid(ceil(J_Y / (double)BLOCK_SIZE) ,ceil(J_Y / (double) BLOCK_SIZE), 1);
+    dim3 dimBlock(BLOCK_SIZE2, BLOCK_SIZE2, 1);
+    dim3 dimGrid(ceil(J_Y / (double)BLOCK_SIZE2) ,ceil(J_Y / (double) BLOCK_SIZE2), 1);
     D_rhoKernel<<< dimGrid, dimBlock >>>(ne, ni, rho_d, cte_rho);
     cudaDeviceSynchronize();
     cudaMemcpy(rho_h,rho_d, size1, cudaMemcpyDeviceToHost);
@@ -292,7 +293,6 @@ namespace pic_cuda {
   void H_electric_field (double *h_phi, double *h_E_X, double *h_E_Y, double hx) {
     int size1 = J_X * J_Y * sizeof(double);
     double *d_E_X, *d_E_Y, *d_phi;
-
     cudaMalloc(&d_E_X, size1);
     cudaMalloc(&d_E_Y, size1);
     cudaMalloc(&d_phi, size1);
@@ -302,7 +302,6 @@ namespace pic_cuda {
 
     dim3 dimBlock(BLOCK_SIZE, 1, 1);
     dim3 dimGrid3(ceil(float(J_X) / BLOCK_SIZE), 1, 1);
-
     D_electric_field<<< dimGrid3, dimBlock >>> (d_phi, d_E_X, d_E_Y, hx);
     cudaDeviceSynchronize();
 
