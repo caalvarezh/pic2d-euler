@@ -7,6 +7,7 @@ int main() {
   //************************
   // Parámetros del sistema
   //************************
+  clock_t tiempo0  =  clock();
 
   int le = 0, li = 0;
   double  t_0, x_0;
@@ -120,14 +121,12 @@ int main() {
   K_total = Ntv * k_MAX_inj;
 
   initialize_Particles (pos_e, vel_e, pos_i, vel_i, li, le);//Velocidades y posiciones iniciales de las partículas (no las libera).
-  clock_t tiempo0  =  clock();
 
   for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
-    cout << kt << endl;
-    if(kt % 50000 == 0) {
+    /*if(kt % 50000 == 0) {
       printf("kt = %d\n", kt);
       printf("le = %d   li = %d \n",le, li );
-    }
+    }*/
     if(kt <= k_MAX_inj && kt == kk) {// Inyectar superpartículas (i-e)
       le+= MAX_SPE_dt;
       li+= MAX_SPI_dt;
@@ -150,7 +149,6 @@ int main() {
 
     // imprimir el potencial electroestatico.
     if(kt % 50000  ==  0) {
-      cout << "le: " << le << " li: " << li << endl;
       sprintf(buffer,"Poisson%d.data", kt);
       ofstream dataFile(buffer);
       for (int j  =  0; j < J_X; j++) {
@@ -217,10 +215,10 @@ int main() {
     }//Cierre de calculo de energia
 
     clock_t tiempo1  =  clock();
-    if(kt % 50000 == 0) {
+    /*if(kt % 50000 == 0) {
       cout << " CPU time " << kt / 50000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
       tiempo0  =  clock();
-    }
+    }*/
 
     //Salida de función de distribución
 
@@ -251,6 +249,7 @@ int main() {
   free(E_X);
   free(E_Y);
   free(rho);
+  cout << " CPU time = " << double(clock() - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
 
   return (0);
 }// FINAL MAIN

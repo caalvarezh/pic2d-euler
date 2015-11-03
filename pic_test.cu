@@ -1,70 +1,103 @@
-#include "pic.cpp"
-#include "pic.cu"
+#include "pic_cuda.cu"
 
 using namespace std;
 
-bool test_concentration(int test_num, bool parallel = true) {
+double test_electric (int test_num, bool parallel = true) {
   char name[40];
-  bool flag = true;
+  sprintf(name, "test_electric%d.data", test_num);
+  freopen (name, "r", stdin);
+  //cout << "Reading from " << name << endl;
+  int size;
+  cin >> size;
+  double *phi = (double *) malloc(size * sizeof(double));
+  for(int i = 0; i < size; i++)
+    cin >> phi[i];
+  double *E_X = (double *) malloc(size * sizeof(double));
+  for(int i = 0; i < size; i++)
+    cin >> E_X[i];
+  double *E_Y = (double *) malloc(size * sizeof(double));
+  for(int i = 0; i < size; i++)
+    cin >> E_Y[i];
+  int hx;
+  cin >> hx;
+  clock_t t = clock();
+  if(parallel){
+    pic_cuda::H_electric_field(phi, E_X, E_Y, hx);
+  }else{
+    pic_cuda::electric_field(phi, E_X, E_Y, hx);
+  }
+  t = clock() - t;
+  return (double)t;
+}
+
+double test_concentration(int test_num, bool parallel = true) {
+  char name[40];
   sprintf(name, "test_concentration%d.data", test_num);
   freopen (name, "r", stdin);
-  cout << "Reading from " << name << endl;
+  //cout << "Reading from " << name << endl;
   int pos_size;
+  int J_X = pic_cuda::J_X;
+  int J_Y = pic_cuda::J_Y;
   cin >> pos_size;
-  double *pos;
-  pos = (double *) malloc(pos_size * sizeof(double));
+  double *pos_x, *pos_y;
+  pos_x = (double *) malloc(pos_size * sizeof(double));
+  pos_y = (double *) malloc(pos_size * sizeof(double));
   for(int i = 0; i < pos_size; i++)
-    cin >> pos[i];
-  int n_size;
-  cin >> n_size;
-  double *n_in, *n_out;
-  n_in = (double *) malloc(n_size * sizeof(double));
-  n_out = (double *) malloc(n_size * sizeof(double));
-  for(int i = 0; i < n_size; i++)
-    cin >> n_in[i];
-  int NSP;
+    cin >> pos_x[i];
+  for(int i = 0; i < pos_size; i++)
+    cin >> pos_y[i];
+  int NSP = pos_size;
   double hx;
-  cin >> NSP >> hx;
-  cout << "..." << endl;
+  double *n_out = (double *) malloc( J_X * J_Y * sizeof(double));
+  cin >>  hx;
+  //cout << "..." << endl;
+  clock_t t;
   if(parallel) {
-    pic_cuda::H_Concentration(pos, n_out, NSP, hx);
-
-    for(int i = 0; i < n_size; i++) {
+    t = clock();
+    pic_cuda::H_Concentration(pos_x, pos_y, n_out, NSP, hx);
+    t = clock() - t;
+    /*for(int i = 0; i < n_size; i++) {
       if(n_in[i] - n_out[i] > 10e-3) {
         cout << "Error at " << i << " : " << n_in[i] << " " << n_out[i] << endl;
         flag = false;
       }
-    }
+    }*/
   } else {
-    pic::Concentration(pos,n_out,NSP,hx);
+    t = clock();
+    pic_cuda::Concentration(pos_x, pos_y, n_out, NSP, hx);
+    t = clock() - t;
   }
   fclose(stdin);
-  return flag;
+  return (double)t;
 }
 
-bool test_motion(int test_num, bool parallel = true) {
+double test_motion(int test_num, bool parallel = true) {
   char name[40];
-  bool flag = true;
   sprintf(name, "test_Motion%d.data", test_num);
   freopen (name, "r", stdin);
-  cout << "Reading from " << name << endl;
+  //cout << "Reading from " << name << endl;
 
   int pos_size;
   cin >> pos_size;
-  double *pos;
-  pos = (double *) malloc(pos_size * sizeof(double));
+  double *pos_x, *pos_y;
+  double *vel_x, *vel_y;
+  pos_x = (double *) malloc(pos_size * sizeof(double));
+  pos_y = (double *) malloc(pos_size * sizeof(double));
+  vel_x = (double *) malloc(pos_size * sizeof(double));
+  vel_y = (double *) malloc(pos_size * sizeof(double));
   for(int i = 0; i < pos_size; i++)
-    cin >> pos[i];
+    cin >> pos_x[i];
 
-  int vel_size;
-  cin >> vel_size;
-  double *vel;
-  vel = (double *) malloc(vel_size * sizeof(double));
-  for(int i = 0; i < vel_size; i++)
-    cin >> vel[i];
+  for(int i = 0; i < pos_size; i++)
+    cin >> pos_y[i];
 
-  int NSP, especie;
-  cin >> NSP >> especie;
+  for(int i = 0; i < pos_size; i++)
+    cin >> vel_x[i];
+  for(int i = 0; i < pos_size; i++)
+    cin >> vel_y[i];
+
+  int NSP = pos_size, especie;
+  cin >> especie;
 
   int E_X_size;
   cin >> E_X_size;
@@ -73,87 +106,58 @@ bool test_motion(int test_num, bool parallel = true) {
   for(int i = 0; i < E_X_size; i++)
     cin >> E_X[i];
 
-  int E_Y_size;
-  cin >> E_Y_size;
   double *E_Y;
-  E_Y = (double *) malloc(E_Y_size * sizeof(double));
-  for(int i = 0; i < E_Y_size; i++)
+  E_Y = (double *) malloc(E_X_size * sizeof(double));
+  for(int i = 0; i < E_X_size; i++)
     cin >> E_Y[i];
 
-  double hx, mv2perdidas;
-  int total_perdidos;
-  cin >> hx >> total_perdidos >> mv2perdidas;
+  double hx, mv2perdidas = 0;
+  int total_perdidos = 0;
+  cin >> hx;
 
   fclose(stdin);
-  cout << "..." << endl;
+  clock_t t = clock();
   if(parallel) {
-    pic_cuda::H_Motion(pos, vel, NSP, especie, E_X, E_Y, hx, total_perdidos, mv2perdidas);
-    /*sprintf(name, "test_out_Motion%d.data", test_num);
-    freopen (name, "r", stdin);
-    //cout << "Reading from " << name << endl;
-
-    cin >> pos_size;
-    double out_pos;
-    for(int i = 0; i < pos_size; i++) {
-      cin >> out_pos;
-      if(abs(pos[i] - out_pos) > 10e-3)
-        cout << "Error in pos at " << i << " with " << pos[i] << " != " << out_pos << endl;
-    }
-
-    cin >> vel_size;
-    double out_vel;
-    for(int i = 0; i < vel_size; i++) {
-      cin >> out_vel;
-      if(abs(vel[i] - out_vel) > 10e-3)
-        cout << "Error in vel at " << i << " with " << vel[i] << " != " << out_vel << endl;
-    }
-
-    int n_NSP;
-    cin >> n_NSP;
-    if(NSP != n_NSP)
-      cout << "Error in NSP " << NSP << " " << n_NSP << endl;
-
-    double out_mv2perdidas;
-    int out_total_perdidos;
-    cin >> out_total_perdidos >> out_mv2perdidas;
-    if(out_total_perdidos != total_perdidos)
-      cout << "Error in total_perdidos " << total_perdidos << " " << out_total_perdidos << endl;
-    if(abs(mv2perdidas - out_mv2perdidas) > 10e-3)
-      cout << "Error in mv2perdidas " << mv2perdidas << " " << out_mv2perdidas << endl;
-    fclose(stdin);*/
-
+    pic_cuda::H_Motion(pos_x, pos_y, vel_x, vel_y, NSP, especie, E_X, E_Y, hx, total_perdidos, mv2perdidas);
   } else {
-    pic::Motion(pos, vel, NSP, especie, E_X, E_Y, hx, total_perdidos, mv2perdidas);
+    pic_cuda::Motion(pos_x, pos_y, vel_x, vel_y, NSP, especie, E_X, E_Y, hx, total_perdidos, mv2perdidas);
   }
-  free(pos);
-  free(vel);
+  t = clock() - t;
+  free(pos_x);
+  free(pos_y);
+  free(vel_x);
+  free(vel_y);
   free(E_X);
   free(E_Y);
-  return flag;
+  return double(t);
 }
 
 
 int main() {
-  int max_test = 64;
+  int max_test = 25;
   clock_t t = clock();
+  double time = 0;
   for(int i = 0; i < max_test; i++) {
-    cout << "Running test " << i << ":" << endl;
-    test_motion(i);
-      //cout << "ERROR IN PARALLEL" << endl;
-      //cout << "Test " << i << " passed." << endl;
+    //cout << "Running test Sec " << i << ":" << endl;
+    time += test_concentration(i, false);
+    //time += test_electric(i, false);
+    //time += test_motion(i, false);
+    //cout << "Test " << i << " passed." << endl;
   }
-  t = clock() - t;
-  double a = ((float)t)/CLOCKS_PER_SEC;
+  double b = time /CLOCKS_PER_SEC;
+  cout << "Secuential: " << b << endl;
+  cout << "--------------------------------------------------" << endl;
+  time = 0;
+  for(int i = 0; i < max_test; i++) {
+    //cout << "Running test " << i << ":" << endl;
+    time += test_concentration(i);
+    //time += test_electric(i);
+    //time += test_motion(i);
+  }
+  double a = time / CLOCKS_PER_SEC;
   cout << "Parallel: " << a << endl;
-  t = clock();
-  for(int i = 0; i < max_test; i++) {
-    cout << "Running test Sec " << i << ":" << endl;
-    test_motion(i, false);
-      //cout << "Test " << i << " passed." << endl;
-  }
-  t = clock() - t;
-  a = ((float)t)/CLOCKS_PER_SEC;
-  cout << "Secuential: " << a << endl;
+
+  cout << "acelerated " << b / a << endl;
 
   return 0;
 }
