@@ -70,7 +70,6 @@ namespace pic_cuda {
   const double n_0 = double(NTe);                   // Densidad de partículas
 
 
-  
   void prueba(int d){
     cout<<"LINE: "<< d <<endl;
   }
@@ -178,6 +177,7 @@ namespace pic_cuda {
     }
   }
 
+  // Debido a las sumas atomicas esta funcion no se puede paralelizar en un cluster
   __global__
     void D_Concentration (double *d_pos_x, double *d_pos_y, double *d_n, int NSP,double hx) {
       int i = blockIdx.x*blockDim.x+threadIdx.x;
