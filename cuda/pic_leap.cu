@@ -3,6 +3,13 @@
 using namespace std;
 using namespace pic_cuda;
 
+#define gpu_error(ans) { gpu_assert((ans), __LINE__); }
+
+inline void gpu_assert(cudaError_t code, int line){
+  if (code != cudaSuccess)
+    cerr<<"GPUerror: "<<cudaGetErrorString(code)<<" in "<< line<<endl;
+}
+
 void initialize_vectors (double *pos_x, double *pos_y, double *vel_x, double *vel_y, double *E_X) {
   int NSP = MAX_SPE;
   for(int i = 0; i < NSP; i++) {
@@ -66,38 +73,59 @@ int main() {
   //***************************
 
   double hx = DELTA_X / X0;                            // Paso espacial
-  int max_it = 1000;
+  int max_it = 20;
 
-  initialize_vectors (pos_e_x, pos_e_y, vel_e_x, vel_e_y, E_X);
-  initialize_vectors (pos_i_x, pos_i_y, vel_i_x, vel_i_y, E_Y);
-  for(int i = 0; i < J_X * J_Y; i++)
-    phi[i] =  rand() % 8234;
-
-  double tcon = 0.0, telec = 0.0, tmot = 0.0 ;
+  double tcon, tscon, telec, tselec, tmot, tsmot;
+  tcon = tscon = telec = tselec = tmot = tsmot = 0.0 ;
   clock_t tiempo;
+  cout << "start " << endl;
   for(int it  =  0; it <= max_it; it++) {
+    cout << it << endl;
+    initialize_vectors (pos_e_x, pos_e_y, vel_e_x, vel_e_y, E_X);
+    initialize_vectors (pos_i_x, pos_i_y, vel_i_x, vel_i_y, E_Y);
+    for(int i = 0; i < J_X * J_Y; i++)
+      phi[i] =  rand() % 8234;
 
     // Calculo de "densidad de carga 2D del plasma"
     tiempo = clock();
     H_Concentration (pos_e_x, pos_e_y, ne, le, hx);// Calcular concentración de superpartículas electrónicas
+    gpu_error(cudaGetLastError());
     H_Concentration (pos_i_x, pos_i_y, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+    gpu_error(cudaGetLastError());
     tcon += clock() - tiempo;
+
+    tiempo = clock();
+    Concentration (pos_e_x, pos_e_y, ne, le, hx);// Calcular concentración de superpartículas electrónicas
+    Concentration (pos_i_x, pos_i_y, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+    tscon += clock() - tiempo;
 
     // Calcular campo eléctrico en puntos de malla
     tiempo = clock();
     H_electric_field(phi, E_X, E_Y, hx);
+    gpu_error(cudaGetLastError());
     telec += clock() - tiempo;
+
+    tiempo = clock();
+    electric_field(phi, E_X, E_Y, hx);
+    tselec += clock() - tiempo;
 
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     tiempo = clock();
     H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    gpu_error(cudaGetLastError());
     H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    gpu_error(cudaGetLastError());
     tmot += clock() - tiempo;
 
+    tiempo = clock();
+    Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    tsmot += clock() - tiempo;
+
   } //Cierre del ciclo principal
-  cout << " CPU time Concentration  =  " << tcon / CLOCKS_PER_SEC << " sec" << endl;
-  cout << " CPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
-  cout << " CPU time Motion         =  " << tmot / CLOCKS_PER_SEC << " sec" << endl;
+  cout << "Concentration\nGPU = " << tcon / CLOCKS_PER_SEC << " sec  CPU = " << tscon / CLOCKS_PER_SEC << endl;
+  cout << "Electric field\nGPU = " << telec / CLOCKS_PER_SEC << " sec  CPU = " << tsmot / CLOCKS_PER_SEC << endl;
+  cout << "Motion\nGPU = " << tmot / CLOCKS_PER_SEC << " sec CPU = " << tsmot / CLOCKS_PER_SEC << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);

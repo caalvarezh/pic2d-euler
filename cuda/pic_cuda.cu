@@ -16,10 +16,10 @@
 using namespace std;
 namespace pic_cuda {
 
-  const int MAX_SPE     = 400000;           // Limite (computacional) de Superpartículas electrónicas
+  const int MAX_SPE     = 100000;           // Limite (computacional) de Superpartículas electrónicas
 //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 2048; //129           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 2048;  //64         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 1025;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 1024;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
 //  const int X           = 0;
@@ -194,12 +194,16 @@ namespace pic_cuda {
         temp_y  =  jr_y - j_y;
         //__threadfence();
         tmp = (1. - temp_x) * (1 - temp_y) / (hhx);
+         __syncthreads();
         atomicAdd(&d_n[j_y + j_x * J_Y], tmp);
         tmp = temp_x * (1 - temp_y) / (hhx);
+         __syncthreads();
         atomicAdd(&d_n[j_y + (j_x + 1) * J_Y], tmp);
         tmp = (1 - temp_x) * temp_y / (hhx);
+         __syncthreads();
         atomicAdd(&d_n[(j_y + 1) + j_x * J_Y], tmp);
         tmp = temp_x * temp_y / (hhx);
+         __syncthreads();
         atomicAdd(&d_n[(j_y + 1) + (j_x + 1) * J_Y], tmp);
       }
     }
