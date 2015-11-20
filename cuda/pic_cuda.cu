@@ -18,8 +18,8 @@ namespace pic_cuda {
 
   const int MAX_SPE     = 100000;           // Limite (computacional) de Superpartículas electrónicas
 //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 1025;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 1024;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 10;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 10;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
 //  const int X           = 0;
@@ -347,7 +347,7 @@ namespace pic_cuda {
   void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
 
     for (int j = 1; j < J_X - 1; j++) {
-      for (int k = 1; k < J_Y - 1; k++) {
+      for (int k = 0; k < J_Y; k++) {
         E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
         E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
 
@@ -368,18 +368,22 @@ namespace pic_cuda {
 
   __global__
     void D_electric_field (double *d_phi, double *d_E_X, double *d_E_Y, double hx) {
-      int j = (blockIdx.x * blockDim.x + threadIdx.x) + 1;
+      int j = (blockIdx.x * blockDim.x + threadIdx.x);
       int k = (blockIdx.y * blockDim.y + threadIdx.y);
-      if(j < J_X - 1 && k < J_Y) {
+      if(j < J_X && k < J_Y) {
         d_E_X[j * J_Y + k] = (d_phi[(j - 1) * J_Y + k] - d_phi[(j + 1) * J_Y + k]) / (2. * hx);
         d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + ((J_Y + k - 1) % J_Y)] - d_phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
-        if(k > 0 && k < J_Y - 1) {
-          d_E_X[k] = 0.0; //Cero en las fronteras X
-          d_E_Y[k] = 0.0;
-          d_E_X[(J_X - 1) * J_Y + k] = 0.0;
-          d_E_Y[(J_X - 1) * J_Y + k] = 0.0;
-        }
+      }
+    }
 
+  __global__
+    void D_electric_field_border (double *d_phi, double *d_E_X, double *d_E_Y, double hx) {
+      int k = (blockIdx.x * blockDim.x + threadIdx.x);
+      if(k < J_Y) {
+        d_E_X[k] = 0.0; //Cero en las fronteras X
+        d_E_Y[k] = 0.0;
+        d_E_X[(J_X - 1) * J_Y + k] = 0.0;
+        d_E_Y[(J_X - 1) * J_Y + k] = 0.0;
       }
     }
 
@@ -396,6 +400,9 @@ namespace pic_cuda {
     dim3 dimBlock(BLOCK_SIZE2, BLOCK_SIZE2, 1);
     dim3 dimGrid3(ceil(float(J_X) / BLOCK_SIZE2), ceil(double(J_Y) / BLOCK_SIZE2), 1);
     D_electric_field<<< dimGrid3, dimBlock >>> (d_phi, d_E_X, d_E_Y, hx);
+    dim3 dimBlock1(BLOCK_SIZE2, 1, 1);
+    dim3 dimGrid31(ceil(float(J_Y) / BLOCK_SIZE2), 1, 1);
+    D_electric_field_border<<< dimGrid31, dimBlock1 >>> (d_phi, d_E_X, d_E_Y, hx);
 
     cudaMemcpy(h_E_X,d_E_X, size1, cudaMemcpyDeviceToHost);
     cudaMemcpy(h_E_Y,d_E_Y, size1, cudaMemcpyDeviceToHost);
@@ -419,15 +426,18 @@ namespace pic_cuda {
         j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
         temp_y  =  jr_y-double(j_y);
 
-        Ep_X = (((1 - temp_x) * (1 - temp_y)) * E_X[j_x * J_Y + j_y] +
-          ((temp_x * (1 - temp_y)) * E_X[(j_x + 1) * J_Y + j_y] +
-          (((1 - temp_x) * temp_y) * E_X[j_x * J_Y + (j_y + 1)] +
-          (temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)]))));
+        Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
+          temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
+          (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
+          temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-        Ep_Y = (((1 - temp_x) * (1 - temp_y)) * E_Y[j_x * J_Y + j_y] +
-          ((temp_x * (1 - temp_y)) * E_Y[(j_x + 1) * J_Y + j_y] +
-          (((1 - temp_x) * temp_y) * E_Y[j_x * J_Y + (j_y + 1)] +
-          (temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)]))));
+
+
+        Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+          temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
+          (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
+          temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
 
         vel_x[i] += DT * fact * Ep_X;
         vel_y[i] += DT * fact * Ep_Y;
@@ -458,9 +468,9 @@ namespace pic_cuda {
     int k = 0;
 
     if (especie ==  ELECTRONS)
-      fact = FACT_EL * CTE_ER * FACTOR_CARGA_E;
+      fact = FACT_EL * CTE_E * FACTOR_CARGA_E;
     else
-      fact = FACT_I * CTE_ER * FACTOR_CARGA_E;
+      fact = FACT_I * CTE_E * FACTOR_CARGA_E;
 
     //LANZAR KERNEL
 
