@@ -16,10 +16,10 @@
 using namespace std;
 namespace pic_cuda {
 
-  const int MAX_SPE     = 100000;           // Limite (computacional) de Superpartículas electrónicas
+  const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
 //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 10;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 10;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 129;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 64;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
 //  const int X           = 0;

@@ -99,7 +99,7 @@ int main() {
   //***************************
 
   double hx = DELTA_X / X0;                            // Paso espacial
-  int max_it = 1;
+  int max_it = 20;
 
   double tcon, tscon, telec, tselec, tmot, tsmot;
   tcon = tscon = telec = tselec = tmot = tsmot = 0.0 ;
@@ -184,9 +184,10 @@ int main() {
     if(compare(vel_i_y, vel_iy, MAX_SPE))
       cout << "fail veliy" << endl;
   } //Cierre del ciclo principal
-  cout << "Concentration\nGPU = " << tcon / CLOCKS_PER_SEC << " sec  CPU = " << tscon / CLOCKS_PER_SEC << endl;
-  cout << "Electric field\nGPU = " << telec / CLOCKS_PER_SEC << " sec  CPU = " << tselec / CLOCKS_PER_SEC << endl;
-  cout << "Motion\nGPU = " << tmot / CLOCKS_PER_SEC << " sec CPU = " << tsmot / CLOCKS_PER_SEC << endl;
+  int div = max_it * CLOCKS_PER_SEC;
+  cout << "Concentration\nGPU = " << tcon / div << " sec  CPU = " << tscon / div << endl;
+  cout << "Electric field\nGPU = " << telec / div << " sec  CPU = " << tselec / div << endl;
+  cout << "Motion\nGPU = " << tmot / div << " sec CPU = " << tsmot / div << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);
