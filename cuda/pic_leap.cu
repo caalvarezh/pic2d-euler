@@ -185,6 +185,7 @@ int main() {
       cout << "fail veliy" << endl;
   } //Cierre del ciclo principal
   int div = max_it * CLOCKS_PER_SEC;
+  cout << std::fixed;
   cout << "Concentration\nGPU = " << tcon / div << " sec  CPU = " << tscon / div << endl;
   cout << "Electric field\nGPU = " << telec / div << " sec  CPU = " << tselec / div << endl;
   cout << "Motion\nGPU = " << tmot / div << " sec CPU = " << tsmot / div << endl;
