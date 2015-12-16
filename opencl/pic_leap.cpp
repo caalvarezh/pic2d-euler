@@ -72,20 +72,91 @@ int main() {
   ** OpenCL Device Query
   */
 
-  cl_int err;
-  cl::vector< cl::Platform > platformList;
-  cl::Platform::get(&platformList);
-  checkErr(platformList.size()!=0 ? CL_SUCCESS : -1, "cl::Platform::get");
-  std::cerr << "Platform number is: " << platformList.size() << std::endl;std::string platformVendor;
-  platformList[0].getInfo((cl_platform_info)CL_PLATFORM_VENDOR, &platformVendor);
-  std::cerr << "Platform is by: " << platformVendor << "\n";
-  cl_context_properties cprops[3] = {CL_CONTEXT_PLATFORM, (cl_context_properties)(platformList[0])(), 0};cl::Context context(
-      CL_DEVICE_TYPE_CPU,
-      cprops,
-      NULL,
-      NULL,
-      &err);
-  checkErr(err, "Context::Context()");
+// Use this to check the output of each API call
+    cl_int status;
+
+    //-----------------------------------------------------
+    // STEP 1: Discover and initialize the platforms
+    //-----------------------------------------------------
+
+    cl_uint numPlatforms = 0;
+    cl_platform_id *platforms = NULL;
+
+    // Use clGetPlatformIDs() to retrieve the number of
+    // platforms
+    status = clGetPlatformIDs(0, NULL, &numPlatforms);
+
+    // Allocate enough space for each platform
+    platforms =
+        (cl_platform_id*)malloc(
+                numPlatforms*sizeof(cl_platform_id));
+
+    // Fill in platforms with clGetPlatformIDs()
+    status = clGetPlatformIDs(numPlatforms, platforms,
+            NULL);
+
+    //-----------------------------------------------------
+    // STEP 2: Discover and initialize the devices
+    //-----------------------------------------------------
+
+    cl_uint numDevices = 0;
+    cl_device_id *devices = NULL;
+
+    // Use clGetDeviceIDs() to retrieve the number of
+    // devices present
+    status = clGetDeviceIDs(
+            platforms[0],
+            CL_DEVICE_TYPE_ALL,
+            0,
+            NULL,
+            &numDevices);
+
+    // Allocate enough space for each device
+    devices =
+        (cl_device_id*)malloc(
+                numDevices*sizeof(cl_device_id));
+
+    // Fill in devices with clGetDeviceIDs()
+    status = clGetDeviceIDs(
+            platforms[0],
+            CL_DEVICE_TYPE_ALL,
+            numDevices,
+            devices,
+            NULL);
+
+    //-----------------------------------------------------
+    // STEP 3: Create a context
+    //-----------------------------------------------------
+
+    cl_context context = NULL;
+
+    // Create a context using clCreateContext() and
+    // associate it with the devices
+    context = clCreateContext(
+            NULL,
+            numDevices,
+            devices,
+            NULL,
+            NULL,
+            &status);
+
+    //-----------------------------------------------------
+    // STEP 4: Create a command queue
+    //-----------------------------------------------------
+
+    cl_command_queue cmdQueue;
+
+    // Create a command queue using clCreateCommandQueue(),
+    // and associate it with the device you want to execute
+    // on
+    cmdQueue = clCreateCommandQueue(
+            context,
+            devices[0],
+            0,
+            &status);
+
+
+
 
   /*
   ** End Device Query
