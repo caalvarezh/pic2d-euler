@@ -1,8 +1,8 @@
-#include < CL/cl.hpp >
-#include < iostream>
-#include < fstream> 
-#include < string> 
-int main() { 
+#include <CL/cl.hpp>
+#include <iostream>
+#include <fstream>
+#include <string>
+int main() {
   const int N_ELEMENTS = 1024;
   int *A = new int[N_ELEMENTS];
   int *B = new int[N_ELEMENTS];
@@ -13,17 +13,17 @@ int main() {
   }
   try {
   // Query for platforms
-  cl::vector < cl::Platform > platforms;
+  std::vector<cl::Platform> platforms;
   cl::Platform::get(&platforms);
   // Get a list of devices on this platform
-  cl::vector < cl::Device > devices;
+  std::vector<cl::Device> devices;
   platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
-  // Create a context for the devices 
+  // Create a context for the devices
   cl::Context context(devices);
   // Create a command queue for the first device
   cl::CommandQueue queue = cl::CommandQueue(context, devices[0]);
   // Read the program source
-  std::ifstream sourceFile(“vector_add_kernel.cl”);
+  std::ifstream sourceFile("vector_add_kernel.cl");
   std::string sourceCode( std::istreambuf_iterator < char > (sourceFile), (std::istreambuf_iterator < char > ()));
   cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length() + 1));
   // Make program from the source code
@@ -40,7 +40,7 @@ int main() {
   queue.enqueueWriteBuffer(bufferA, CL_TRUE, 0, N_ELEMENTS * sizeof(int), A);
   queue.enqueueWriteBuffer(bufferB, CL_TRUE, 0, N_ELEMENTS * sizeof(int), B);
   // Make kernel
-  cl::Kernel vecadd_kernel(program, “vecadd”);
+  cl::Kernel vecadd_kernel(program, "vecadd");
   // Set the kernel arguments
   vecadd_kernel.setArg(0, bufferA);
   vecadd_kernel.setArg(1, bufferB);
@@ -54,17 +54,18 @@ int main() {
   // Verify the result
   bool result = true;
   for (int i = 0; i < N_ELEMENTS; i ++) {
-    if (C[i] ! = A[i] + B[i]) {
+    if (C[i] != A[i] + B[i]) {
       result = false;
       break;
     }
   }
   if (result)
-    std::cout < < “Success!” < < std::endl;
+    std::cout << "Success!" << std::endl;
   else
-    std::cout < < “Failed!” < < std::endl;
-  } catch(cl::Error error) {
-    std::cout < < error.what() < < “(” < < error.err() < < “)” < < std::endl;
+    std::cout << "Failed!" << std::endl;
+  } catch(...) {
+    std::cout << "error" << std::endl;
+    //std::cout << error.what() << "(" << error.err() << ")" < < std::endl;
   }
   return 0;
 }
