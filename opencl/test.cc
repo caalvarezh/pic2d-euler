@@ -301,10 +301,11 @@ int main() {
 
     // Verify the output
     bool result = true;
-    for(int i = 0; i < elements; i++) {
+    for(int i = 0; i < 10; i++) {
         if(C[i] != i+i) {
+            printf("%d : %d\n", i, C[i]);
             result = false;
-            break;
+            //break;
         }
     }
     if(result) {

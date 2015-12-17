@@ -104,111 +104,28 @@ int main() {
   phi   = (double *) malloc(size1);
 
   /*
-  ** OpenCL Device Query
+  ** OpenCL precompute
   */
-
-// Use this to check the output of each API call
-    cl_int status;
-
-    //-----------------------------------------------------
-    // STEP 1: Discover and initialize the platforms
-    //-----------------------------------------------------
-
-    cl_uint numPlatforms = 0;
-    cl_platform_id *platforms = NULL;
-
-    // Use clGetPlatformIDs() to retrieve the number of
-    // platforms
-    status = clGetPlatformIDs(0, NULL, &numPlatforms);
-
-    // Allocate enough space for each platform
-    platforms =
-        (cl_platform_id*)malloc(
-                numPlatforms*sizeof(cl_platform_id));
-
-    // Fill in platforms with clGetPlatformIDs()
-    status = clGetPlatformIDs(numPlatforms, platforms,
-            NULL);
-
-    //-----------------------------------------------------
-    // STEP 2: Discover and initialize the devices
-    //-----------------------------------------------------
-
-    cl_uint numDevices = 0;
-    cl_device_id *devices = NULL;
-
-    // Use clGetDeviceIDs() to retrieve the number of
-    // devices present
-    status = clGetDeviceIDs(
-            platforms[0],
-            CL_DEVICE_TYPE_ALL,
-            0,
-            NULL,
-            &numDevices);
-
-    // Allocate enough space for each device
-    devices =
-        (cl_device_id*)malloc(
-                numDevices*sizeof(cl_device_id));
-
-    // Fill in devices with clGetDeviceIDs()
-    status = clGetDeviceIDs(
-            platforms[0],
-            CL_DEVICE_TYPE_ALL,
-            numDevices,
-            devices,
-            NULL);
-
-    //-----------------------------------------------------
-    // STEP 3: Create a context
-    //-----------------------------------------------------
-
-    cl_context context = NULL;
-
-    // Create a context using clCreateContext() and
-    // associate it with the devices
-    context = clCreateContext(
-            NULL,
-            numDevices,
-            devices,
-            NULL,
-            NULL,
-            &status);
-
-    //-----------------------------------------------------
-    // STEP 4: Create a command queue
-    //-----------------------------------------------------
-
-    cl_command_queue cmdQueue;
-
-    // Create a command queue using clCreateCommandQueue(),
-    // and associate it with the device you want to execute
-    // on
-    cmdQueue = clCreateCommandQueue(
-            context,
-            devices[0],
-            0,
-            &status);
-
-    cl_program program = clCreateProgramWithSource(
-            context,
-            1,
-            (const char**)&programSource,
-            NULL,
-            &status);
-
-    // Build (compile) the program for the devices with
-    // clBuildProgram()
-    status = clBuildProgram(
-            program,
-            numDevices,
-            devices,
-            NULL,
-            NULL,
-            NULL);
-
+  // Query for platforms
+  cl::vector < cl::Platform > platforms;
+  cl::Platform::get(&platforms);
+  // Get a list of devices on this platform
+  cl::vector < cl::Device > devices;
+  platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+  // Create a context for the devices 
+  cl::Context context(devices);
+  // Create a command queue for the first device
+  cl::CommandQueue queue = cl::CommandQueue(context, devices[0]);
+  // Read the program source
+  std::ifstream sourceFile(“vector_add_kernel.cl”);
+  std::string sourceCode( std::istreambuf_iterator < char > (sourceFile), (std::istreambuf_iterator < char > ()));
+  cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length() + 1));
+  // Make program from the source code
+  cl::Program program = cl::Program(context, source);
+  // Build the program for the devices
+  program.build(devices);
   /*
-  ** End Device Query
+  ** End OpenCL
   */
 
   //***************************
