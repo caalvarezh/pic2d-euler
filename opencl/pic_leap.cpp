@@ -1,7 +1,7 @@
-#include "pic_cuda.cu"
+#include "pic.cpp"
 
 using namespace std;
-using namespace pic_cuda;
+using namespace pic_cl;
 
 void initialize_vectors (double *pos_x, double *pos_y, double *vel_x, double *vel_y, double *E_X) {
   int NSP = MAX_SPE;
@@ -22,41 +22,6 @@ inline void checkErr(cl_int err, const char * name) {
     exit(EXIT_FAILURE);
   }
 }
-
-cl_program load_program(cl_context context, cl_device_id device, const char* filename)
-{
-  FILE *fp = fopen(filename, "rt");
-  size_t length;
-  char *data;
-  char *build_log;
-  size_t ret_val_size;
-  cl_program program = 0;
-  cl_int status = 0;
-  if(!fp) return 0;
-  // get file length
-  fseek(fp, 0, SEEK_END);
-  length = ftell(fp);
-  fseek(fp, 0, SEEK_SET);
-  // read program source
-  data = (char *)malloc(length + 1);
-  fread(data, sizeof(char), length, fp);
-  data[length] = '\0';
-  // create and build program
-  program = clCreateProgramWithSource(context, 1, (const char **)&data, 0, 0);
-  if (program == 0) return 0;
-  status = clBuildProgram(program, 0, 0, 0, 0, 0);
-  if (status != CL_SUCCESS) {
-    printf("Error: Building Program from file %s\n", filename);
-    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &ret_val_size);
-    build_log = (char *)malloc(ret_val_size + 1);
-    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, ret_val_size, build_log, NULL);
-    build_log[ret_val_size] = '\0';
-    printf("Building Log:\n%s", build_log);
-    return 0;
-  }
-  return program;
-}
-
 
 int main() {
   //************************
@@ -104,111 +69,28 @@ int main() {
   phi   = (double *) malloc(size1);
 
   /*
-  ** OpenCL Device Query
+  ** OpenCL precompute
   */
-
-// Use this to check the output of each API call
-    cl_int status;
-
-    //-----------------------------------------------------
-    // STEP 1: Discover and initialize the platforms
-    //-----------------------------------------------------
-
-    cl_uint numPlatforms = 0;
-    cl_platform_id *platforms = NULL;
-
-    // Use clGetPlatformIDs() to retrieve the number of
-    // platforms
-    status = clGetPlatformIDs(0, NULL, &numPlatforms);
-
-    // Allocate enough space for each platform
-    platforms =
-        (cl_platform_id*)malloc(
-                numPlatforms*sizeof(cl_platform_id));
-
-    // Fill in platforms with clGetPlatformIDs()
-    status = clGetPlatformIDs(numPlatforms, platforms,
-            NULL);
-
-    //-----------------------------------------------------
-    // STEP 2: Discover and initialize the devices
-    //-----------------------------------------------------
-
-    cl_uint numDevices = 0;
-    cl_device_id *devices = NULL;
-
-    // Use clGetDeviceIDs() to retrieve the number of
-    // devices present
-    status = clGetDeviceIDs(
-            platforms[0],
-            CL_DEVICE_TYPE_ALL,
-            0,
-            NULL,
-            &numDevices);
-
-    // Allocate enough space for each device
-    devices =
-        (cl_device_id*)malloc(
-                numDevices*sizeof(cl_device_id));
-
-    // Fill in devices with clGetDeviceIDs()
-    status = clGetDeviceIDs(
-            platforms[0],
-            CL_DEVICE_TYPE_ALL,
-            numDevices,
-            devices,
-            NULL);
-
-    //-----------------------------------------------------
-    // STEP 3: Create a context
-    //-----------------------------------------------------
-
-    cl_context context = NULL;
-
-    // Create a context using clCreateContext() and
-    // associate it with the devices
-    context = clCreateContext(
-            NULL,
-            numDevices,
-            devices,
-            NULL,
-            NULL,
-            &status);
-
-    //-----------------------------------------------------
-    // STEP 4: Create a command queue
-    //-----------------------------------------------------
-
-    cl_command_queue cmdQueue;
-
-    // Create a command queue using clCreateCommandQueue(),
-    // and associate it with the device you want to execute
-    // on
-    cmdQueue = clCreateCommandQueue(
-            context,
-            devices[0],
-            0,
-            &status);
-
-    cl_program program = clCreateProgramWithSource(
-            context,
-            1,
-            (const char**)&programSource,
-            NULL,
-            &status);
-
-    // Build (compile) the program for the devices with
-    // clBuildProgram()
-    status = clBuildProgram(
-            program,
-            numDevices,
-            devices,
-            NULL,
-            NULL,
-            NULL);
-
+  // Query for platforms
+  std::vector < cl::Platform > platforms;
+  cl::Platform::get(&platforms);
+  // Get a list of devices on this platform
+  std::vector < cl::Device > devices;
+  platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+  // Create a context for the devices 
+  cl::Context context(devices);
+  // Create a command queue for the first device
+  cl::CommandQueue queue = cl::CommandQueue(context, devices[0]);
+  // Read the program source
+  std::ifstream sourceFile("pic_cl.cl");
+  std::string sourceCode( std::istreambuf_iterator < char > (sourceFile), (std::istreambuf_iterator < char > ()));
+  cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length() + 1));
+  // Make program from the source code
+  cl::Program program = cl::Program(context, source);
+  // Build the program for the devices
+  program.build(devices);
   /*
-  ** End Device Query
+  ** End OpenCL
   */
 
   //***************************
@@ -216,36 +98,31 @@ int main() {
   //***************************
 
   double hx = DELTA_X / X0;                            // Paso espacial
-  int max_it = 1000;
+  int max_it = 100000;
 
   initialize_vectors (pos_e_x, pos_e_y, vel_e_x, vel_e_y, E_X);
   initialize_vectors (pos_i_x, pos_i_y, vel_i_x, vel_i_y, E_Y);
   for(int i = 0; i < J_X * J_Y; i++)
     phi[i] =  rand() % 8234;
 
-  double tcon = 0.0, telec = 0.0, tmot = 0.0 ;
+  double telec = 0.0, tmot = 0.0 ;
   clock_t tiempo;
   for(int it  =  0; it <= max_it; it++) {
 
-    // Calculo de "densidad de carga 2D del plasma"
-    tiempo = clock();
-    H_Concentration (pos_e_x, pos_e_y, ne, le, hx);// Calcular concentración de superpartículas electrónicas
-    H_Concentration (pos_i_x, pos_i_y, ni, li, hx);// Calcular concentración de superpartículas Iónicas
-    tcon += clock() - tiempo;
-
     // Calcular campo eléctrico en puntos de malla
     tiempo = clock();
-    H_electric_field(phi, E_X, E_Y, hx);
+    H_electric_field(phi, E_X, E_Y, hx, context, program, queue);
     telec += clock() - tiempo;
 
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     tiempo = clock();
-    H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx,
+        total_e_perdidos, mv2perdidas, context, program, queue);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx,
+        total_i_perdidos, mv2perdidas, context, program, queue);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     tmot += clock() - tiempo;
 
   } //Cierre del ciclo principal
-  cout << " CPU time Concentration  =  " << tcon / CLOCKS_PER_SEC << " sec" << endl;
   cout << " CPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
   cout << " CPU time Motion         =  " << tmot / CLOCKS_PER_SEC << " sec" << endl;
   free(pos_e_x);

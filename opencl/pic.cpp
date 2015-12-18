@@ -1,5 +1,6 @@
 #define BLOCK_SIZE 1024
 #define BLOCK_SIZE2 32
+#include <CL/cl.hpp>
 #include <iostream>
 #include <cstdlib>
 #include <cstdio>
@@ -15,8 +16,8 @@ namespace pic_cl {
 
   const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
   //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 129;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 64;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 255;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 128;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   //  const int X           = 0;
@@ -181,7 +182,7 @@ namespace pic_cl {
         f[j] = rho[(j + 1) * N + k].real();
       fftw_execute(p);
       for (int j = 0; j < M; j++) {
-        rho[(j + 1) * N + k].real() = f[j];
+        rho[(j + 1) * N + k].real(f[j]);
       }
     }
 
@@ -243,153 +244,104 @@ namespace pic_cl {
 
   }
 
-  void H_electric_field (double *h_phi, double *h_E_X, double *h_E_Y, double hx) {
+  void H_electric_field (double *h_phi, double *h_E_X, double *h_E_Y, double hx,
+      cl::Context context, cl::Program program, cl::CommandQueue queue) {
     int size = J_X * J_Y * sizeof(double);
-    cl_mem d_phi;
-    cl_mem d_E_X;
-    cl_mem d_E_Y;
-    d_phi = clCreateBuffer(
-        context,
-        CL_MEM_READ_ONLY,
-        size,
-        NULL,
-        &status);
-    d_E_X = clCreateBuffer(
-        context,
-        CL_MEM_READ_ONLY,
-        size,
-        NULL,
-        &status);
-    d_E_Y = clCreateBuffer(
-        context,
-        CL_MEM_READ_ONLY,
-        size,
-        NULL,
-        &status);
-
-
-    status = clEnqueueWriteBuffer(
-        cmdQueue,
-        d_phi,
-        CL_FALSE,
-        0,
-        size,
-        h_phi,
-        0,
-        NULL,
-        NULL);
-    status = clEnqueueWriteBuffer(
-        cmdQueue,
-        d_E_X,
-        CL_FALSE,
-        0,
-        size,
-        h_E_X,
-        0,
-        NULL,
-        NULL);
-    status = clEnqueueWriteBuffer(
-        cmdQueue,
-        d_E_Y,
-        CL_FALSE,
-        0,
-        size,
-        h_E_Y,
-        0,
-        NULL,
-        NULL);
-
-    cl_kernel kernel = NULL;
-
-    // Use clCreateKernel() to create a kernel
-    kernel = clCreateKernel(program, "D_electric_field", &status);
-
-    //-----------------------------------------------------
-    // STEP 9: Set the kernel arguments
-    //-----------------------------------------------------
-
-    // Associate the input and output buffers with the
-    // kernel
-    // using clSetKernelArg()
-    status  = clSetKernelArg(
-        kernel,
-        0,
-        sizeof(cl_mem),
-        &d_phi);
-    status |= clSetKernelArg(
-        kernel,
-        1,
-        sizeof(cl_mem),
-        &d_E_X);
-    status |= clSetKernelArg(
-        kernel,
-        2,
-        sizeof(cl_mem),
-        &d_E_Y);
-    status |= clSetKernelArg(
-        kernel,
-        2,
-        sizeof(int),
-        &hx);
-
-    //-----------------------------------------------------
-    // STEP 10: Configure the work-item structure
-    //-----------------------------------------------------
-
-    // Define an index space (global work size) of work
-    // items for
-    // execution. A workgroup size (local work size) is not
-    // required,
-    // but can be used.
-    size_t globalWorkSize[3] = {BLOCK_SIZE2, BLOCK_SIZE2, 1};
-    // There are 'elements' work-items
-
-    //-----------------------------------------------------
-    // STEP 11: Enqueue the kernel for execution
-    //-----------------------------------------------------
-
-    // Execute the kernel by using
-    // clEnqueueNDRangeKernel().
-    // 'globalWorkSize' is the 1D dimension of the
-    // work-items
-    status = clEnqueueNDRangeKernel(
-            cmdQueue,
-            kernel,
-            1,
-            NULL,
-            globalWorkSize,
-            NULL,
-            0,
-            NULL,
-            NULL);
-
-
-
     //prepare memory
+    // Create the memory buffers
+    cl::Buffer d_phi = cl::Buffer(context, CL_MEM_READ_ONLY, size);
+    cl::Buffer d_E_X = cl::Buffer(context, CL_MEM_READ_WRITE, size);
+    cl::Buffer d_E_Y = cl::Buffer(context, CL_MEM_READ_WRITE, size);
+    // Copy the input data to the input buffers using the
+    // command queue for the first device
+    queue.enqueueWriteBuffer(d_phi, CL_TRUE, 0, size, h_phi);
+    queue.enqueueWriteBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);
+    queue.enqueueWriteBuffer(d_E_Y, CL_TRUE, 0, size, h_E_Y);
     //launch kernel
+    // Make kernel
+    cl::Kernel D_electric_field(program, "D_electric_field");
+    // Set the kernel arguments
+    D_electric_field.setArg(0, d_phi);
+    D_electric_field.setArg(1, d_E_X);
+    D_electric_field.setArg(2, d_E_Y);
+    D_electric_field.setArg(3, hx);
+    // Execute the kernel
+    cl::NDRange global(BLOCK_SIZE2, BLOCK_SIZE2, 1);
+    cl::NDRange local(ceil(float(J_X) / BLOCK_SIZE2), ceil(double(J_Y) / BLOCK_SIZE2), 1);
+    queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global, local);
+
+    cl::Kernel D_electric_field_border(program, "D_electric_field_border");
+    // Set the kernel arguments
+    D_electric_field_border.setArg(0, d_E_X);
+    D_electric_field_border.setArg(1, d_E_Y);
+    D_electric_field_border.setArg(2, hx);
+
+    cl::NDRange global1(BLOCK_SIZE2, 1, 1);
+    cl::NDRange local1(ceil(double(J_Y) / BLOCK_SIZE2), 1, 1);
+    queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global1, local1);
     // get the answer and free memory
+    // Copy the output data back to the host
+    queue.enqueueReadBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);
+    queue.enqueueReadBuffer(d_E_Y, CL_TRUE, 0, size, h_E_Y);
   }
 
 
   void H_Motion(double *h_pos_x, double *h_pos_y, double *h_vel_x, double *h_vel_y, int &NSP,
-      int especie, double *h_E_X, double *h_E_Y, double hx, int &total_perdidos, double &mv2perdidas) {
+      int especie, double *h_E_X, double *h_E_Y, double hx, int &total_perdidos, double &mv2perdidas,
+      cl::Context context, cl::Program program, cl::CommandQueue queue) {
     double fact;
     int k = 0;
-    fact = FACT_EL * CTE_E * FACTOR_CARGA_E;
+    if (especie ==  ELECTRONS)
+      fact = FACT_EL * CTE_E * FACTOR_CARGA_E;
     else
-      if (especie ==  ELECTRONS)
-        fact = FACT_I * CTE_E * FACTOR_CARGA_E;
+      fact = FACT_I * CTE_E * FACTOR_CARGA_E;
 
     //LANZAR KERNEL
 
     int size  = NSP * sizeof(double);
     int size1 = J_X * J_Y * sizeof(double);
-    double *d_pos_x, *d_pos_y, *d_vel_x, *d_vel_y, *d_E_X, *d_E_Y;
-    //bool *d_visit, *h_visit;
-    //h_visit = (bool *) malloc((size / 2));
     //prepare memory
+    // Create the memory buffers
+    cl::Buffer d_pos_x = cl::Buffer(context, CL_MEM_READ_WRITE, size);
+    cl::Buffer d_pos_y = cl::Buffer(context, CL_MEM_READ_WRITE, size);
+    cl::Buffer d_vel_x = cl::Buffer(context, CL_MEM_READ_WRITE, size);
+    cl::Buffer d_vel_y = cl::Buffer(context, CL_MEM_READ_WRITE, size);
+    cl::Buffer d_E_X = cl::Buffer(context, CL_MEM_READ_ONLY, size);
+    cl::Buffer d_E_Y = cl::Buffer(context, CL_MEM_READ_ONLY, size);
+    // Copy the input data to the input buffers using the
+    // command queue for the first device
+    queue.enqueueWriteBuffer(d_pos_x, CL_TRUE, 0, size, h_pos_x);
+    queue.enqueueWriteBuffer(d_pos_y, CL_TRUE, 0, size, h_pos_y);
+    queue.enqueueWriteBuffer(d_vel_x, CL_TRUE, 0, size, h_vel_x);
+    queue.enqueueWriteBuffer(d_vel_y, CL_TRUE, 0, size, h_vel_y);
+    queue.enqueueWriteBuffer(d_E_X, CL_TRUE, 0, size1, h_E_X);
+    queue.enqueueWriteBuffer(d_E_Y, CL_TRUE, 0, size1, h_E_Y);
+
     //launch kernel
+    // Make kernel
+    cl::Kernel D_Motion(program, "D_Motion");
+    // Set the kernel arguments
+    D_Motion.setArg(0, d_pos_x);
+    D_Motion.setArg(1, d_pos_y);
+    D_Motion.setArg(2, d_vel_x);
+    D_Motion.setArg(3, d_vel_y);
+    D_Motion.setArg(4, NSP);
+    D_Motion.setArg(5, fact);
+    D_Motion.setArg(6, d_E_X);
+    D_Motion.setArg(7, d_E_Y);
+    D_Motion.setArg(8, hx);
+    D_Motion.setArg(9, L_MAX_X);
+    D_Motion.setArg(10, L_MAX_Y);
+    // Execute the kernel
+    cl::NDRange global(BLOCK_SIZE, 1, 1);
+    cl::NDRange local(ceil(float(NSP) / BLOCK_SIZE), 1, 1);
+    queue.enqueueNDRangeKernel(D_Motion, cl::NullRange, global, local);
+
     // get the answer and free memory
+    queue.enqueueReadBuffer(d_pos_x, CL_TRUE, 0, size, h_pos_x);
+    queue.enqueueReadBuffer(d_pos_y, CL_TRUE, 0, size, h_pos_y);
+    queue.enqueueReadBuffer(d_vel_x, CL_TRUE, 0, size, h_vel_x);
+    queue.enqueueReadBuffer(d_vel_y, CL_TRUE, 0, size, h_vel_y);
 
     // FIN
     for (int i = 0; i < NSP; i++) {
