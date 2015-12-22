@@ -1,5 +1,5 @@
 CC := g++
-C_FLAGS := -lm -lfftw3 -lOpenCL
+C_FLAGS := -std=c++11 -lm -lfftw3 -lOpenCL
 
 all: pic_leap
 

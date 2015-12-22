@@ -1,5 +1,5 @@
-#define BLOCK_SIZE 1024
-#define BLOCK_SIZE2 32
+#define BLOCK_SIZE 510
+#define BLOCK_SIZE2 16
 #include <CL/cl.hpp>
 #include <iostream>
 #include <cstdlib>
@@ -14,10 +14,10 @@
 using namespace std;
 namespace pic_cl {
 
-  const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
+  const int MAX_SPE     = 10;           // Limite (computacional) de Superpartículas electrónicas
   //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 255;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 128;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 8;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 4;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   //  const int X           = 0;
@@ -66,6 +66,15 @@ namespace pic_cl {
   const int    NTe = 1e5;
   const int    NTI = 1e5;                                  //Número de partículas "reales"
   const double n_0 = double(NTe);                   // Densidad de partículas
+
+  inline void checkErr(cl_int err, const char * name) {
+    if (err != CL_SUCCESS) {
+      std::cerr << "ERROR: " << name  << " (" << err << ")" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
+
 
   //*********************
   //Velocidades Iniciales
@@ -244,45 +253,146 @@ namespace pic_cl {
 
   }
 
+  void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
+
+    for (int j = 1; j < J_X - 1; j++) {
+      for (int k = 0; k < J_Y; k++) {
+        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
+        E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
+
+        E_X[k] = 0.0;  //Cero en las fronteras X
+        E_Y[k] = 0.0;
+        E_X[(J_X - 1) * J_Y + k] = 0.0;
+        E_Y[(J_X - 1) * J_Y + k] = 0.0;
+      }
+
+      E_X[j * J_Y] = (phi[(j - 1) * J_Y] - phi[((j + 1) * J_Y + 0)]) / (2. * hx);
+      E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
+
+      E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
+      E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
+    }
+
+  }
+
   void H_electric_field (double *h_phi, double *h_E_X, double *h_E_Y, double hx,
       cl::Context context, cl::Program program, cl::CommandQueue queue) {
     int size = J_X * J_Y * sizeof(double);
     //prepare memory
     // Create the memory buffers
+    cl_int error;
     cl::Buffer d_phi = cl::Buffer(context, CL_MEM_READ_ONLY, size);
     cl::Buffer d_E_X = cl::Buffer(context, CL_MEM_READ_WRITE, size);
     cl::Buffer d_E_Y = cl::Buffer(context, CL_MEM_READ_WRITE, size);
     // Copy the input data to the input buffers using the
     // command queue for the first device
-    queue.enqueueWriteBuffer(d_phi, CL_TRUE, 0, size, h_phi);
-    queue.enqueueWriteBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);
-    queue.enqueueWriteBuffer(d_E_Y, CL_TRUE, 0, size, h_E_Y);
+    error = queue.enqueueWriteBuffer(d_phi, CL_TRUE, 0, size, h_phi);
+    checkErr(error, "queue 1");
+    error = queue.enqueueWriteBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);
+    checkErr(error, "queue 2");
+    error = queue.enqueueWriteBuffer(d_E_Y, CL_TRUE, 0, size, h_E_Y);
+    checkErr(error, "queue 3");
     //launch kernel
     // Make kernel
-    cl::Kernel D_electric_field(program, "D_electric_field");
+    cl::Kernel D_electric_field(program, "D_electric_field", &error);
+    checkErr(error, "kernel");
     // Set the kernel arguments
-    D_electric_field.setArg(0, d_phi);
-    D_electric_field.setArg(1, d_E_X);
-    D_electric_field.setArg(2, d_E_Y);
-    D_electric_field.setArg(3, hx);
+    error = D_electric_field.setArg(0, d_phi);
+    checkErr(error, "set arg 1");
+    error = D_electric_field.setArg(1, d_E_X);
+    checkErr(error, "set arg 2");
+    error = D_electric_field.setArg(2, d_E_Y);
+    checkErr(error, "set arg 3");
+    error = D_electric_field.setArg(3, hx);
+    checkErr(error, "set arg 4");
+    error = D_electric_field.setArg(4, J_X);
+    checkErr(error, "set arg 4");
+    error = D_electric_field.setArg(5, J_Y);
+    checkErr(error, "set arg 4");
     // Execute the kernel
     cl::NDRange global(BLOCK_SIZE2, BLOCK_SIZE2, 1);
+    //checkErr(error, "global");
     cl::NDRange local(ceil(float(J_X) / BLOCK_SIZE2), ceil(double(J_Y) / BLOCK_SIZE2), 1);
-    queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global, local);
+    //checkErr(error, "local");
+    error = queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global, local);
+    checkErr(error, "call kernel");
 
     cl::Kernel D_electric_field_border(program, "D_electric_field_border");
     // Set the kernel arguments
-    D_electric_field_border.setArg(0, d_E_X);
-    D_electric_field_border.setArg(1, d_E_Y);
-    D_electric_field_border.setArg(2, hx);
+    error = D_electric_field_border.setArg(0, d_E_X);
+    error = D_electric_field_border.setArg(1, d_E_Y);
+    error = D_electric_field_border.setArg(2, hx);
 
     cl::NDRange global1(BLOCK_SIZE2, 1, 1);
     cl::NDRange local1(ceil(double(J_Y) / BLOCK_SIZE2), 1, 1);
-    queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global1, local1);
+    error = queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global1, local1);
     // get the answer and free memory
     // Copy the output data back to the host
-    queue.enqueueReadBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);
-    queue.enqueueReadBuffer(d_E_Y, CL_TRUE, 0, size, h_E_Y);
+    error = queue.enqueueReadBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);
+    error = queue.enqueueReadBuffer(d_E_Y, CL_TRUE, 0, size, h_E_Y);
+  }
+
+void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP, int especie,
+     double *E_X, double *E_Y, double hx, int &total_perdidos, double &mv2perdidas) {
+    int j_x,j_y;
+    double temp_x,temp_y,Ep_X, Ep_Y,fact;
+    double jr_x,jr_y;
+    int kk1 = 0;
+
+    if(especie ==  ELECTRONS)
+      fact = FACT_EL;
+    else
+      fact = FACT_I;
+
+    for (int i = 0; i < NSP; i++) {
+      jr_x = pos_x[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
+      j_x  = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+      temp_x = jr_x - double(j_x);
+      jr_y = pos_y[i] / hx;     // Índice (real) de la posición de la superpartícula (Y)
+      j_y  = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+      temp_y  =  jr_y-double(j_y);
+
+      Ep_X = (1 - temp_x) * (1 - temp_y) * E_X[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_X[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
+
+      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+        temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
+        (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
+        temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
+      vel_x[i] = vel_x[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
+      vel_y[i] = vel_y[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
+
+      pos_x[i] += vel_x[i] * DT;
+      pos_y[i] += vel_y[i] * DT;
+
+      if(pos_x[i] < 0) {//Rebote en la pared del material.
+        pos_x[i] = -pos_x[i];
+        vel_x[i] = -vel_x[i];
+      }
+
+      while(pos_y[i] > L_MAX_Y) //Ciclo en el eje Y.
+        pos_y[i] = pos_y[i] - L_MAX_Y;
+
+      while(pos_y[i]<0.0) //Ciclo en el eje Y.
+        pos_y[i] = L_MAX_Y + pos_y[i];
+
+      if(pos_y[i] < 0.0) //Ciclo en el eje Y.
+        pos_y[i] += L_MAX_Y;
+
+      if(pos_x[i] >= 0 && pos_x[i] <= L_MAX_X) {
+        pos_x[kk1] = pos_x[i];
+        pos_y[kk1] = pos_y[i];
+        vel_x[kk1] = vel_x[i];
+        vel_y[kk1] = vel_y[i];
+        kk1++;
+      }
+
+      //Salida espacio de Fase
+    }
+
   }
 
 
@@ -332,6 +442,7 @@ namespace pic_cl {
     D_Motion.setArg(8, hx);
     D_Motion.setArg(9, L_MAX_X);
     D_Motion.setArg(10, L_MAX_Y);
+    D_Motion.setArg(11, DT);
     // Execute the kernel
     cl::NDRange global(BLOCK_SIZE, 1, 1);
     cl::NDRange local(ceil(float(NSP) / BLOCK_SIZE), 1, 1);

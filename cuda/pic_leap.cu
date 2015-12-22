@@ -68,31 +68,30 @@ int main() {
   pos_i_x = (double *) malloc(size);
   pos_i_y = (double *) malloc(size);
 
-  pos_ex = (double *) malloc(size);
-  pos_ey = (double *) malloc(size);
-  pos_ix = (double *) malloc(size);
-  pos_iy = (double *) malloc(size);
-
   vel_e_x = (double *) malloc(size);
   vel_e_y = (double *) malloc(size);
   vel_i_x = (double *) malloc(size);
   vel_i_y = (double *) malloc(size);
 
+  ne    = (double *) malloc(size1);
+  ni    = (double *) malloc(size1);
+  phi   = (double *) malloc(size1);
+  E_X   = (double *) malloc(size1);
+  E_Y   = (double *) malloc(size1);
+
+  pos_ex = (double *) malloc(size);
+  pos_ey = (double *) malloc(size);
+  pos_ix = (double *) malloc(size);
+  pos_iy = (double *) malloc(size);
+
   vel_ex = (double *) malloc(size);
   vel_ey = (double *) malloc(size);
   vel_ix = (double *) malloc(size);
   vel_iy = (double *) malloc(size);
-
-  ne    = (double *) malloc(size1);
   ne1   = (double *) malloc(size1);
-  ni    = (double *) malloc(size1);
   ni1   = (double *) malloc(size1);
-  phi   = (double *) malloc(size1);
-  E_X   = (double *) malloc(size1);
   E_X1  = (double *) malloc(size1);
-  E_Y   = (double *) malloc(size1);
   E_Y1  = (double *) malloc(size1);
-  phi   = (double *) malloc(size1);
 
   //***************************
   // Normalización de variables
@@ -128,6 +127,7 @@ int main() {
     H_Concentration (pos_i_x, pos_i_y, ni, li, hx);// Calcular concentración de superpartículas Iónicas
     gpu_error(cudaGetLastError());
     tcon += clock() - tiempo;
+
     tiempo = clock();
     Concentration (pos_e_x, pos_e_y, ne1, le, hx);// Calcular concentración de superpartículas electrónicas
     Concentration (pos_i_x, pos_i_y, ni1, li, hx);// Calcular concentración de superpartículas Iónicas

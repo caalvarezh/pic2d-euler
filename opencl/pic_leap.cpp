@@ -3,6 +3,17 @@
 using namespace std;
 using namespace pic_cl;
 
+bool compare(double *c1, double *c2, int size) {
+  bool flag = false;
+  for(int i = 0; i < size; i++) {
+    if(fabs(c1[i] - c2[i]) > 1e-3) {
+      cout << c1[i] << " - " <<i <<" - " << c2[i] << endl;
+      flag = true;
+    }
+  }
+  return flag;
+}
+
 void initialize_vectors (double *pos_x, double *pos_y, double *vel_x, double *vel_y, double *E_X) {
   int NSP = MAX_SPE;
   for(int i = 0; i < NSP; i++) {
@@ -13,13 +24,6 @@ void initialize_vectors (double *pos_x, double *pos_y, double *vel_x, double *ve
   }
   for(int i = 0; i < J_X * J_Y; i++) {
     E_X[i] = rand() % 2342;
-  }
-}
-
-inline void checkErr(cl_int err, const char * name) {
-  if (err != CL_SUCCESS) {
-    std::cerr << "ERROR: " << name  << " (" << err << ")" << std::endl;
-    exit(EXIT_FAILURE);
   }
 }
 
@@ -48,8 +52,9 @@ int main() {
   int size = MAX_SPE * sizeof(double);
   int size1 = J_X * J_Y * sizeof(double);
 
-  double *pos_e_x, *pos_e_y, *pos_i_x, *pos_i_y, *vel_e_x, *vel_e_y, *vel_i_x, *vel_i_y, *ne, *ni;
-  double *phi, *E_X, *E_Y;
+  double *pos_e_x, *pos_e_y, *pos_i_x, *pos_i_y, *vel_e_x, *vel_e_y, *vel_i_x, *vel_i_y,
+         *phi, *E_X, *E_Y, *E_X1, *E_Y1, *pos_ex, *pos_ey, *vel_ex, *vel_ey,
+         *pos_ix, *pos_iy, *vel_ix, *vel_iy;
   //double  E_i,E_e,E_field,E_total,E_perdida;
 
   pos_e_x = (double *) malloc(size);
@@ -61,34 +66,70 @@ int main() {
   vel_e_y = (double *) malloc(size);
   vel_i_x = (double *) malloc(size);
   vel_i_y = (double *) malloc(size);
-  ne    = (double *) malloc(size1);
-  ni    = (double *) malloc(size1);
   phi   = (double *) malloc(size1);
   E_X   = (double *) malloc(size1);
   E_Y   = (double *) malloc(size1);
   phi   = (double *) malloc(size1);
 
+  pos_ex = (double *) malloc(size);
+  pos_ey = (double *) malloc(size);
+  pos_ix = (double *) malloc(size);
+  pos_iy = (double *) malloc(size);
+
+  vel_ex = (double *) malloc(size);
+  vel_ey = (double *) malloc(size);
+  vel_ix = (double *) malloc(size);
+  vel_iy = (double *) malloc(size);
+  E_X1  = (double *) malloc(size1);
+  E_Y1  = (double *) malloc(size1);
+
   /*
   ** OpenCL precompute
   */
   // Query for platforms
-  std::vector < cl::Platform > platforms;
-  cl::Platform::get(&platforms);
+  cl_int error;
+  vector < cl::Platform > platforms;
+  error = cl::Platform::get(&platforms);
+  checkErr(error, "Platform");
   // Get a list of devices on this platform
-  std::vector < cl::Device > devices;
-  platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
-  // Create a context for the devices 
-  cl::Context context(devices);
+  vector < cl::Device > devices;
+  error = platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+  checkErr(error, "device");
+  cl::Device default_device = devices[0];
+  // Create a context for the devices
+  cout << "sz " << devices.size() << endl;
+  cl::Context context(devices, NULL, NULL, NULL, &error);
+  checkErr(error, "context");
   // Create a command queue for the first device
-  cl::CommandQueue queue = cl::CommandQueue(context, devices[0]);
+  cl::CommandQueue queue = cl::CommandQueue(context, default_device, 0, &error);
+  checkErr(error, "command queue");
   // Read the program source
-  std::ifstream sourceFile("pic_cl.cl");
-  std::string sourceCode( std::istreambuf_iterator < char > (sourceFile), (std::istreambuf_iterator < char > ()));
-  cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length() + 1));
+  cl::Program::Sources source;
+  ifstream sourceFile;
+
+  sourceFile.open("pic_elec.cl");
+  string s_elec( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
+  sourceFile.close();
+
+  sourceFile.open("pic_elec_b.cl");
+  string s_elec_b( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
+  sourceFile.close();
+
+  sourceFile.open("pic_mot.cl");
+  string s_mot( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
+  sourceFile.close();
+
+  source.push_back(make_pair(s_elec.c_str(),   s_elec.length() + 1) );
+  source.push_back(make_pair(s_elec_b.c_str(), s_elec_b.length() + 1));
+  source.push_back(make_pair(s_mot.c_str(),    s_mot.length() + 1));
+  //checkErr(error, "program source");
   // Make program from the source code
-  cl::Program program = cl::Program(context, source);
+  cl::Program program = cl::Program(context, source, &error);
+  checkErr(error, "program");
   // Build the program for the devices
-  program.build(devices);
+  error = program.build(devices);
+  cout<<" Error building: "<<program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device)<<"\n";
+  checkErr(error, "program build");
   /*
   ** End OpenCL
   */
@@ -98,22 +139,43 @@ int main() {
   //***************************
 
   double hx = DELTA_X / X0;                            // Paso espacial
-  int max_it = 100000;
+  int max_it = 1;
 
-  initialize_vectors (pos_e_x, pos_e_y, vel_e_x, vel_e_y, E_X);
-  initialize_vectors (pos_i_x, pos_i_y, vel_i_x, vel_i_y, E_Y);
-  for(int i = 0; i < J_X * J_Y; i++)
-    phi[i] =  rand() % 8234;
-
-  double telec = 0.0, tmot = 0.0 ;
+  double telec, tselec, tmot, tsmot;
+  telec = tselec = tmot = tsmot = 0.0 ;
   clock_t tiempo;
   for(int it  =  0; it <= max_it; it++) {
+    initialize_vectors (pos_e_x, pos_e_y, vel_e_x, vel_e_y, E_X);
+    initialize_vectors (pos_i_x, pos_i_y, vel_i_x, vel_i_y, E_Y);
+
+    memcpy(E_X1, E_X, size1);
+    memcpy(E_Y1, E_Y, size1);
+    memcpy(pos_ex, pos_e_x, size);
+    memcpy(pos_ix, pos_i_x, size);
+    memcpy(vel_ex, vel_e_x, size);
+    memcpy(vel_ix, vel_i_x, size);
+    memcpy(pos_ey, pos_e_y, size);
+    memcpy(pos_iy, pos_i_y, size);
+    memcpy(vel_ey, vel_e_y, size);
+    memcpy(vel_iy, vel_i_y, size);
+    for(int i = 0; i < J_X * J_Y; i++)
+      phi[i] =  rand() % 8234;
 
     // Calcular campo eléctrico en puntos de malla
+#if 1
     tiempo = clock();
     H_electric_field(phi, E_X, E_Y, hx, context, program, queue);
     telec += clock() - tiempo;
 
+    tiempo = clock();
+    electric_field(phi, E_X1, E_Y1, hx);
+    tselec += clock() - tiempo;
+
+    if(compare(E_X, E_X1, J_X * J_Y))
+      cout << "fail ex" << endl;
+    if(compare(E_Y, E_Y1, J_X * J_Y))
+      cout << "fail ey" << endl;
+#else
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     tiempo = clock();
     H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx,
@@ -122,9 +184,33 @@ int main() {
         total_i_perdidos, mv2perdidas, context, program, queue);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     tmot += clock() - tiempo;
 
+    tiempo = clock();
+    Motion(pos_ex, pos_ey, vel_ex, vel_ey, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    Motion(pos_ix, pos_iy, vel_ix, vel_iy, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    tsmot += clock() - tiempo;
+
+    if(compare(pos_e_x, pos_ex, MAX_SPE))
+      cout << "fail posex" << endl;
+    if(compare(pos_e_y, pos_ey, MAX_SPE))
+      cout << "fail posey" << endl;
+    if(compare(pos_i_x, pos_ix, MAX_SPE))
+      cout << "fail posix" << endl;
+    if(compare(pos_i_y, pos_iy, MAX_SPE))
+      cout << "fail posiy" << endl;
+
+    if(compare(vel_e_x, vel_ex, MAX_SPE))
+      cout << "fail velex" << endl;
+    if(compare(vel_e_y, vel_ey, MAX_SPE))
+      cout << "fail veley" << endl;
+    if(compare(vel_i_x, vel_ix, MAX_SPE))
+      cout << "fail velix" << endl;
+    if(compare(vel_i_y, vel_iy, MAX_SPE))
+      cout << "fail veliy" << endl;
+#endif
+
   } //Cierre del ciclo principal
-  cout << " CPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
-  cout << " CPU time Motion         =  " << tmot / CLOCKS_PER_SEC << " sec" << endl;
+  cout << " GPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
+  cout << " GPU time Motion         =  " << tmot / CLOCKS_PER_SEC << " sec" << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);
@@ -133,8 +219,6 @@ int main() {
   free(vel_e_y);
   free(vel_i_x);
   free(vel_i_y);
-  free(ne);
-  free(ni);
   free(phi);
   free(E_X);
   free(E_Y);
