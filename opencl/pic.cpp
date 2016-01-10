@@ -398,7 +398,7 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
 
   void H_Motion(double *h_pos_x, double *h_pos_y, double *h_vel_x, double *h_vel_y, int &NSP,
       int especie, double *h_E_X, double *h_E_Y, double hx, int &total_perdidos, double &mv2perdidas,
-      cl::Context context, cl::Program program, cl::CommandQueue queue) {
+      cl::Context &context, cl::Program &program, cl::CommandQueue &queue) {
     double fact;
     int k = 0;
     if (especie ==  ELECTRONS)
@@ -429,7 +429,9 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
 
     //launch kernel
     // Make kernel
-    cl::Kernel D_Motion(program, "D_Motion");
+    cl_int err;
+    cl::Kernel D_Motion(program, "D_Motion", &err);
+    checkErr(err, "kernel execution");
     // Set the kernel arguments
     D_Motion.setArg(0, d_pos_x);
     D_Motion.setArg(1, d_pos_y);
@@ -443,11 +445,13 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
     D_Motion.setArg(9, L_MAX_X);
     D_Motion.setArg(10, L_MAX_Y);
     D_Motion.setArg(11, DT);
+    D_Motion.setArg(12, J_X);
+    D_Motion.setArg(13, J_Y);
     // Execute the kernel
     cl::NDRange global(BLOCK_SIZE, 1, 1);
     cl::NDRange local(ceil(float(NSP) / BLOCK_SIZE), 1, 1);
     queue.enqueueNDRangeKernel(D_Motion, cl::NullRange, global, local);
-
+    
     // get the answer and free memory
     queue.enqueueReadBuffer(d_pos_x, CL_TRUE, 0, size, h_pos_x);
     queue.enqueueReadBuffer(d_pos_y, CL_TRUE, 0, size, h_pos_y);
