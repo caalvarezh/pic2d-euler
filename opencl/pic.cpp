@@ -13,7 +13,7 @@
 
 using namespace std;
 namespace pic_cl {
-
+  int db = 0;
   const int MAX_SPE     = 10;           // Limite (computacional) de Superpartículas electrónicas
   //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
   const int J_X         = 8;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
@@ -272,7 +272,6 @@ namespace pic_cl {
       E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
       E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
     }
-
   }
 
   void H_electric_field (double *h_phi, double *h_E_X, double *h_E_Y, double hx,
@@ -317,19 +316,31 @@ namespace pic_cl {
     error = queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global, local);
     checkErr(error, "call kernel");
 
+
     cl::Kernel D_electric_field_border(program, "D_electric_field_border");
     // Set the kernel arguments
     error = D_electric_field_border.setArg(0, d_E_X);
+    checkErr(error, "set arg 1");
     error = D_electric_field_border.setArg(1, d_E_Y);
+    checkErr(error, "set arg 2");
     error = D_electric_field_border.setArg(2, hx);
+    checkErr(error, "set arg 3");
+    error = D_electric_field_border.setArg(3, J_X);
+    checkErr(error, "set arg 4");
+    error = D_electric_field_border.setArg(4, J_Y);
+    checkErr(error, "set arg 4");
 
     cl::NDRange global1(BLOCK_SIZE2, 1, 1);
     cl::NDRange local1(ceil(double(J_Y) / BLOCK_SIZE2), 1, 1);
-    error = queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global1, local1);
+    error = queue.enqueueNDRangeKernel(D_electric_field_border, cl::NullRange, global1, local1);
+    checkErr(error, "call kernel");
+
     // get the answer and free memory
     // Copy the output data back to the host
     error = queue.enqueueReadBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);
+    checkErr(error, "read buffer");
     error = queue.enqueueReadBuffer(d_E_Y, CL_TRUE, 0, size, h_E_Y);
+    checkErr(error, "read buffer2");
   }
 
 void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP, int especie,
@@ -339,10 +350,10 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
     double jr_x,jr_y;
     int kk1 = 0;
 
-    if(especie ==  ELECTRONS)
-      fact = FACT_EL;
+    if (especie ==  ELECTRONS)
+      fact = FACT_EL * CTE_E * FACTOR_CARGA_E;
     else
-      fact = FACT_I;
+      fact = FACT_I * CTE_E * FACTOR_CARGA_E;
 
     for (int i = 0; i < NSP; i++) {
       jr_x = pos_x[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
@@ -357,13 +368,13 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
         (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
         temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y]; +
         temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
         (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
         temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
 
-      vel_x[i] = vel_x[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_X * DT;
-      vel_y[i] = vel_y[i] + CTE_E * FACTOR_CARGA_E * fact * Ep_Y * DT;
+      vel_x[i] += (DT * fact) * Ep_X;
+      vel_y[i] += (DT * fact) * Ep_Y;
 
       pos_x[i] += vel_x[i] * DT;
       pos_y[i] += vel_y[i] * DT;
@@ -405,7 +416,6 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
       fact = FACT_EL * CTE_E * FACTOR_CARGA_E;
     else
       fact = FACT_I * CTE_E * FACTOR_CARGA_E;
-
     //LANZAR KERNEL
 
     int size  = NSP * sizeof(double);
@@ -416,8 +426,8 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
     cl::Buffer d_pos_y = cl::Buffer(context, CL_MEM_READ_WRITE, size);
     cl::Buffer d_vel_x = cl::Buffer(context, CL_MEM_READ_WRITE, size);
     cl::Buffer d_vel_y = cl::Buffer(context, CL_MEM_READ_WRITE, size);
-    cl::Buffer d_E_X = cl::Buffer(context, CL_MEM_READ_ONLY, size);
-    cl::Buffer d_E_Y = cl::Buffer(context, CL_MEM_READ_ONLY, size);
+    cl::Buffer d_E_X = cl::Buffer(context, CL_MEM_READ_ONLY, size1);
+    cl::Buffer d_E_Y = cl::Buffer(context, CL_MEM_READ_ONLY, size1);
     // Copy the input data to the input buffers using the
     // command queue for the first device
     queue.enqueueWriteBuffer(d_pos_x, CL_TRUE, 0, size, h_pos_x);
@@ -451,7 +461,7 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
     cl::NDRange global(BLOCK_SIZE, 1, 1);
     cl::NDRange local(ceil(float(NSP) / BLOCK_SIZE), 1, 1);
     queue.enqueueNDRangeKernel(D_Motion, cl::NullRange, global, local);
-    
+
     // get the answer and free memory
     queue.enqueueReadBuffer(d_pos_x, CL_TRUE, 0, size, h_pos_x);
     queue.enqueueReadBuffer(d_pos_y, CL_TRUE, 0, size, h_pos_y);

@@ -1,3 +1,30 @@
+__kernel void D_electric_field_border (__global double *d_E_X,
+                                       __global double *d_E_Y,
+                                       double hx, int J_X,
+                                       int J_Y) {
+  int k = get_global_id(0);
+  if(k < J_Y) {
+    d_E_X[k] = 0.0; //Cero en las fronteras X
+    d_E_Y[k] = 0.0;
+    d_E_X[(J_X - 1) * J_Y + k] = 0.0;
+    d_E_Y[(J_X - 1) * J_Y + k] = 0.0;
+  }
+}
+__kernel void D_electric_field (__global double *d_phi,
+                                __global double *d_E_X,
+                                __global double *d_E_Y,
+                                double hx, int J_X, int J_Y) {
+  int j = get_global_id(0) + 1;
+  int k = get_global_id(1);
+  if(j < (J_X - 1) && k < J_Y) {
+    d_E_X[j * J_Y + k] = (d_phi[(j - 1) * J_Y + k] -
+                         d_phi[(j + 1) * J_Y + k]) / (2. * hx);
+    d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + ((J_Y + k - 1) % J_Y)]
+                         - d_phi[j * J_Y + ((k + 1) % J_Y)])
+                         / (2. * hx);
+  }
+}
+
 __kernel
 void D_Motion(__global double *pos_x, __global double *pos_y,
         __global double *vel_x, __global double *vel_y, int NSP, double fact,
@@ -20,14 +47,13 @@ void D_Motion(__global double *pos_x, __global double *pos_y,
       (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
       temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-    Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
+    Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y]; +
       temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
       (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
       temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
 
-    vel_x[i] += DT * fact * Ep_X;
-    vel_y[i] += DT * fact * Ep_Y;
-
+    vel_x[i] += (DT * fact) * Ep_X;
+    vel_y[i] += (DT * fact) * Ep_Y;
     pos_x[i] += vel_x[i] * DT;
     pos_y[i] += vel_y[i] * DT;
 
@@ -43,4 +69,3 @@ void D_Motion(__global double *pos_x, __global double *pos_y,
       pos_y[i] = L_MAX_Y + pos_y[i];
   }
 }
-

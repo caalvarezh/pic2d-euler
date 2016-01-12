@@ -7,7 +7,7 @@ bool compare(double *c1, double *c2, int size) {
   bool flag = false;
   for(int i = 0; i < size; i++) {
     if(fabs(c1[i] - c2[i]) > 1e-2) {
-      cout << c1[i] << " - " << i <<" - " << c2[i] << endl;
+      cout << i << " : " << c1[i] << " -  " << c2[i] << " = " << fabs(c1[i] - c2[i])<< endl;
       flag = true;
     }
   }
@@ -106,28 +106,29 @@ int main() {
   cl::Program::Sources source;
   ifstream sourceFile;
 
-  sourceFile.open("pic_elec.cl");
+  sourceFile.open("out.cl");
+  //sourceFile.open("pic_elec.cl");
   string s_elec( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
   sourceFile.close();
 
-  sourceFile.open("pic_elec_b.cl");
+  /*sourceFile.open("pic_elec_b.cl");
   string s_elec_b( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
   sourceFile.close();
 
   sourceFile.open("pic_mot.cl");
   string s_mot( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
   sourceFile.close();
-
-  //source.push_back(make_pair(s_elec.c_str(),   s_elec.length() + 1) );
+*/
+  source.push_back(make_pair(s_elec.c_str(),   s_elec.length() + 1) );
   //source.push_back(make_pair(s_elec_b.c_str(), s_elec_b.length() + 1));
-  source.push_back(make_pair(s_mot.c_str(),    s_mot.length() + 1));
+  //source.push_back(make_pair(s_mot.c_str(),    s_mot.length() + 1));
   //checkErr(error, "program source");
   // Make program from the source code
   cl::Program program = cl::Program(context, source, &error);
   checkErr(error, "program");
   // Build the program for the devices
   error = program.build(devices);
-  cout<<" Error building: "<<program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device)<<"\n";
+  //cout<<" Error building: "<<program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device)<<"\n";
   checkErr(error, "program build");
   /*
   ** End OpenCL
@@ -161,7 +162,7 @@ int main() {
       phi[i] =  rand() % 8234;
 
     // Calcular campo eléctrico en puntos de malla
-#if 0
+
     tiempo = clock();
     H_electric_field(phi, E_X, E_Y, hx, context, program, queue);
     telec += clock() - tiempo;
@@ -174,7 +175,7 @@ int main() {
       cout << "fail ex" << endl;
     if(compare(E_Y, E_Y1, J_X * J_Y))
       cout << "fail ey" << endl;
-#else
+
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     tiempo = clock();
     H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx,
@@ -196,6 +197,15 @@ int main() {
       cout << "fail posey" << endl;
     else
       cout << "success posey" << endl;
+    if(compare(vel_e_x, vel_ex, MAX_SPE))
+      cout << "fail velex" << endl;
+    else
+      cout << "success velex" << endl;
+    if(compare(vel_e_y, vel_ey, MAX_SPE))
+      cout << "fail veley" << endl;
+    else
+      cout << "success veley" << endl;
+
     if(compare(pos_i_x, pos_ix, MAX_SPE))
       cout << "fail posix" << endl;
     else
@@ -205,14 +215,6 @@ int main() {
     else
       cout << "success posiy" << endl;
 
-    if(compare(vel_e_x, vel_ex, MAX_SPE))
-      cout << "fail velex" << endl;
-    else
-      cout << "success velex" << endl;
-    if(compare(vel_e_y, vel_ey, MAX_SPE))
-      cout << "fail veley" << endl;
-    else
-      cout << "success veley" << endl;
     if(compare(vel_i_x, vel_ix, MAX_SPE))
       cout << "fail velix" << endl;
     else
@@ -221,7 +223,6 @@ int main() {
       cout << "fail veliy" << endl;
     else
       cout << "success veliy" << endl;
-#endif
 
   } //Cierre del ciclo principal
   cout << " GPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
