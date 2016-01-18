@@ -218,7 +218,11 @@ int main() {
 
   } //Cierre del ciclo principal
   cout << " GPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
+  cout << " CPU time Electric field =  " << tselec / CLOCKS_PER_SEC << " sec" << endl;
+  cout << " Electric field X = " << tselec / telec << endl;
   cout << " GPU time Motion         =  " << tmot / CLOCKS_PER_SEC << " sec" << endl;
+  cout << " CPU time Motion         =  " << tsmot / CLOCKS_PER_SEC << " sec" << endl;
+  cout << " Motion X = " << tsmot / tmot << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);

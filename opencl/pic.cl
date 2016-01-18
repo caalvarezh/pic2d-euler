@@ -1,3 +1,4 @@
+#pragma OPENCL EXTENSION cl_khr_fp64: enable
 __kernel void D_electric_field_border (__global double *d_E_X,
                                        __global double *d_E_Y,
                                        double hx, int J_X,
