@@ -106,29 +106,21 @@ int main() {
   cl::Program::Sources source;
   ifstream sourceFile;
 
-  sourceFile.open("out.cl");
-  //sourceFile.open("pic_elec.cl");
+  sourceFile.open("pic.cl");
   string s_elec( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
   sourceFile.close();
 
-  /*sourceFile.open("pic_elec_b.cl");
-  string s_elec_b( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
-  sourceFile.close();
-
-  sourceFile.open("pic_mot.cl");
-  string s_mot( istreambuf_iterator < char > (sourceFile), (istreambuf_iterator < char > ()));
-  sourceFile.close();
-*/
   source.push_back(make_pair(s_elec.c_str(),   s_elec.length() + 1) );
-  //source.push_back(make_pair(s_elec_b.c_str(), s_elec_b.length() + 1));
-  //source.push_back(make_pair(s_mot.c_str(),    s_mot.length() + 1));
   //checkErr(error, "program source");
+
   // Make program from the source code
   cl::Program program = cl::Program(context, source, &error);
   checkErr(error, "program");
+
   // Build the program for the devices
   error = program.build(devices);
   //cout<<" Error building: "<<program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device)<<"\n";
+
   checkErr(error, "program build");
   /*
   ** End OpenCL
