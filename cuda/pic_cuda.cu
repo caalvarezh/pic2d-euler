@@ -99,7 +99,7 @@ namespace pic_cuda {
     double vmax =  4. * sigma;                       // Rapidez máxima
     double v, f, f_random;
 
-    static int flag  = 1;
+    static int flag  = 0;
     if (flag  ==  0) {
       int seed  =  time (NULL);
       srand (seed);
@@ -124,7 +124,7 @@ namespace pic_cuda {
     double vmax =  3.*sigma;                       // Rapidez máxima
     double v,f,f_random;
 
-    static int flag  =  1;
+    static int flag  =  0;
     if (flag  ==  0) {
       int seed  =  time (NULL);
       srand (seed);
@@ -257,31 +257,28 @@ namespace pic_cuda {
   //***********************************************************************
   //
 
+
   void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho, double hx) {
     int M = J_X - 2, N = J_Y;
     double h = hx;
     double hy = hx;
     double *f;
-    fftw_complex  *f2;
-    fftw_plan p,p_y,p_i,p_yi;
+    fftw_complex *f2;
+    fftw_plan p, p_y, p_i, p_yi;
     f= (double*) fftw_malloc(sizeof(double)* M);
     f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
-
     p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
     p_y = fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);
     p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
     p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
-
     // Columnas FFT
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < M; j++)
         f[j] = rho[(j + 1) * N + k].real();
       fftw_execute(p);
-      for (int j = 0; j < M; j++) {
+      for (int j = 0; j < M; j++)
         rho[(j + 1) * N + k].real() = f[j];
-      }
     }
-
     // Filas FFT
     for (int j = 0; j < M; j++) {
       for (int k = 0; k < N; k++)
@@ -290,7 +287,6 @@ namespace pic_cuda {
       for (int k = 0; k < N; k++)
         memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
     }
-
     // Resolver en el espacio de Fourier
     complex<double> i(0.0, 1.0);
     double pi = M_PI;
@@ -299,13 +295,12 @@ namespace pic_cuda {
     for (int m = 0; m < M; m++) {
       for (int n = 0; n < N; n++) {
         complex<double> denom = h * h * 2.0 + hy * hy * 2.0;
-        denom -= hy * hy * (2 * cos((m + 1) * pi / (M + 1))) + h * h *(Wn + 1.0 / Wn);
+        denom -= hy * hy * (2 * cos((m + 1) * pi / (M + 1))) + h * h * (Wn + 1.0 / Wn);
         if (denom != 0.0)
           rho[(m + 1) * N + n] *= h * h * hy * hy / denom;
         Wn *= Wy;
       }
     }
-
     // Inversa de las filas
     for (int j = 0; j < M; j++) {
       for (int k = 0; k < N; k++)
@@ -316,8 +311,6 @@ namespace pic_cuda {
         rho[(j + 1) * N + k] /= double(N); //La transformada debe ser normalizada.
       }
     }
-
-
     //Inversa C lumnas FFT
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < M; j++)
@@ -326,28 +319,22 @@ namespace pic_cuda {
       for (int j = 0; j < M; j++)
         phi[(j + 1) * N + k] = f[j] / double(2 * (M + 1));
     }
-
     for (int k = 0; k < N; k++) {
-      phi[0 * N + k]=0;
+      phi[k]=0;
       phi[(J_X - 1) * N + k]=0;
     }
-
     fftw_destroy_plan(p);
     fftw_destroy_plan(p_i);
     fftw_destroy_plan(p_y);
     fftw_destroy_plan(p_yi);
     fftw_free(f); fftw_free(f2);
-
   }
 
-
   //*********************************************************
-  // probar blockzise2 con paralelo de los dos for, mirar la viabilidad de integrar lo que esta afuera del for
-  // revisar esta funcion
   void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
 
     for (int j = 1; j < J_X - 1; j++) {
-      for (int k = 0; k < J_Y; k++) {
+      for (int k = 1; k < J_Y - 1; k++) {
         E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
         E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
 
@@ -361,7 +348,7 @@ namespace pic_cuda {
       E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
 
       E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
-      E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
+      E_Y[j * J_Y + (J_Y - 1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
     }
 
   }
@@ -412,11 +399,11 @@ namespace pic_cuda {
   }
 
   __global__
-    void D_Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y,
-        int NSP, double fact, double *E_X, double *E_Y, double hx, double L_MAX_X, double L_MAX_Y) {
-      int j_x,j_y;
-      double temp_x,temp_y,Ep_X, Ep_Y;
-      double jr_x,jr_y;
+    void D_Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, bool *visit,
+        int &NSP, double fact, double *E_X, double *E_Y, double hx, double L_MAX_X, double L_MAX_Y) {
+      int j_x, j_y;
+      double temp_x, temp_y, Ep_X, Ep_Y;
+      double jr_x, jr_y;
       int i = blockIdx.x * blockDim.x + threadIdx.x;
       if ( i < NSP) {
         jr_x = pos_x[i] / hx;     // Índice (real) de la posición de la superpartícula (X)
@@ -450,9 +437,9 @@ namespace pic_cuda {
           vel_x[i] = -vel_x[i];
         }
 
-        //if (pos_x[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
-          //visit[i] = false;
-        //}
+        if (pos_x[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
+          visit[i] = false;
+        }
 
         while(pos_y[i] > L_MAX_Y) //Ciclo en el eje Y.
           pos_y[i] = pos_y[i] - L_MAX_Y;
@@ -477,13 +464,13 @@ namespace pic_cuda {
     int size  = NSP * sizeof(double);
     int size1 = J_X * J_Y * sizeof(double);
     double *d_pos_x, *d_pos_y, *d_vel_x, *d_vel_y, *d_E_X, *d_E_Y;
-    //bool *d_visit, *h_visit;
-    //h_visit = (bool *) malloc((size / 2));
+    bool *d_visit, *h_visit;
+    h_visit = (bool *) malloc((size / 2));
     cudaMalloc(&d_pos_x, size);
     cudaMalloc(&d_pos_y, size);
     cudaMalloc(&d_vel_x, size);
     cudaMalloc(&d_vel_y, size);
-    //cudaMalloc(&d_visit, size / 2);
+    cudaMalloc(&d_visit, size / 2);
     cudaMalloc(&d_E_X, size1);
     cudaMalloc(&d_E_Y, size1);
     cudaMemcpy(d_pos_x, h_pos_x, size, cudaMemcpyHostToDevice);
@@ -492,11 +479,12 @@ namespace pic_cuda {
     cudaMemcpy(d_vel_y, h_vel_y, size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_E_X, h_E_X, size1, cudaMemcpyHostToDevice);
     cudaMemcpy(d_E_Y, h_E_Y, size1, cudaMemcpyHostToDevice);
-    //cudaMemset(d_visit, true, size / 2);
+    cudaMemset(d_visit, true, size / 2);
 
     dim3 dimBlock(BLOCK_SIZE,1,1);
     dim3 dimGrid(ceil(NSP/float(BLOCK_SIZE)),1, 1);
-    D_Motion<<< dimGrid, dimBlock >>>(d_pos_x, d_pos_y, d_vel_x, d_vel_y, NSP, fact, d_E_X, d_E_Y, hx, L_MAX_X, L_MAX_Y);
+    D_Motion<<< dimGrid, dimBlock >>>(d_pos_x, d_pos_y, d_vel_x, d_vel_y, d_visit,
+        NSP, fact, d_E_X, d_E_Y, hx, L_MAX_X, L_MAX_Y);
     //cudaDeviceSynchronize();
     cudaMemcpy(h_pos_x, d_pos_x, size, cudaMemcpyDeviceToHost);
     cudaMemcpy(h_pos_y, d_pos_y, size, cudaMemcpyDeviceToHost);
@@ -513,8 +501,9 @@ namespace pic_cuda {
 
 
     // FIN
+    int conteo_perdidas = 0;
     for (int i = 0; i < NSP; i++) {
-      /*if (!h_visit[i]) {//Partícula fuera del espacio de Simulación
+      if (!h_visit[i]) {//Partícula fuera del espacio de Simulación
         conteo_perdidas++;
         double tmp = pow( sqrt(h_vel_x[i] * h_vel_x[i] + h_vel_y[i] * h_vel_y[i]) , 2);
         if(especie  ==  ELECTRONS) {
@@ -522,7 +511,7 @@ namespace pic_cuda {
         } else {
           mv2perdidas+= tmp / (RAZON_MASAS);
         }
-      }*/
+      }
 
       if (h_pos_x[i] >= 0 && h_pos_x[i] <= L_MAX_X) {
         h_pos_x[k] = h_pos_x[i];
@@ -532,7 +521,8 @@ namespace pic_cuda {
         k++;
       }
     }
-    //free(h_visit);
+    NSP -= conteo_perdidas;
+    free(h_visit);
     //Salida espacio de Fase
 
   }
@@ -542,7 +532,7 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
     int j_x,j_y;
     double temp_x,temp_y,Ep_X, Ep_Y,fact;
     double jr_x,jr_y;
-    int kk1 = 0;
+    int kk1 = 0, conteo_perdidas = 0;
 
     if(especie ==  ELECTRONS)
       fact = FACT_EL;
@@ -577,7 +567,9 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
         pos_x[i] = -pos_x[i];
         vel_x[i] = -vel_x[i];
       }
-
+      if(pos_x[i] >= L_MAX_X) {
+        conteo_perdidas++;
+      }
       while(pos_y[i] > L_MAX_Y) //Ciclo en el eje Y.
         pos_y[i] = pos_y[i] - L_MAX_Y;
 
@@ -597,7 +589,7 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
 
       //Salida espacio de Fase
     }
-
+    NSP -= conteo_perdidas;
   }
 
 
