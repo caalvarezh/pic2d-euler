@@ -163,8 +163,6 @@ int main() {
     gpu_error(cudaGetLastError());
 */
     // imprimir el potencial electroestatico.
-    if(kt % 100)
-      cout << "100" << endl;
     if(kt % 50000  ==  0) {
       sprintf(buffer,"Poisson%d.data", kt);
       ofstream dataFile(buffer);
@@ -198,7 +196,6 @@ int main() {
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-
  /*   H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     gpu_error(cudaGetLastError());
     H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
@@ -229,12 +226,6 @@ int main() {
  //     fprintf(outEnergia,"%e %e %e %e %e %d  %e \n", kt * DT, E_total, E_i, E_e, E_field, total_e_perdidos + total_i_perdidos, E_perdida );
     }//Cierre de calculo de energia*/
 
-    clock_t tiempo1  =  clock();
-    /*if(kt % 50000 == 0) {
-      cout << " CPU time " << kt / 50000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
-      tiempo0  =  clock();
-    }*/
-
     //Salida de función de distribución
 
 /*    if(kt % 50000  ==  0) {
@@ -253,6 +244,7 @@ int main() {
     fclose(outFase_ele[i]);
     fclose(outFase_ion[i]);
   }*/
+  cout << " Time = " << double(clock() - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
 
   free(pos_e_x);
   free(pos_e_y);
@@ -268,7 +260,6 @@ int main() {
   free(E_X);
   free(E_Y);
   free(rho);
-  cout << " CPU time = " << double(clock() - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
 
   return (0);
 }// FINAL MAIN

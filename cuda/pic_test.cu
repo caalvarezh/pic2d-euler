@@ -98,7 +98,7 @@ int main() {
   //***************************
 
   double hx = DELTA_X / X0;                            // Paso espacial
-  int max_it = 20;
+  int max_it = 10;
 
   double tcon, tscon, telec, tselec, tmot, tsmot;
   tcon = tscon = telec = tselec = tmot = tsmot = 0.0 ;
