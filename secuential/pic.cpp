@@ -1,4 +1,3 @@
-//#include "pic.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <cstdio>
@@ -168,9 +167,9 @@ namespace pic {
     double h = hx;
     double hy = hx;
     double *f;
-/*    fftw_complex  *f2;
-    fftw_plan p,p_y,p_i,p_yi;
-    f= (double*) fftw_malloc(sizeof(double)* M);
+    fftw_complex  *f2;
+    fftw_plan p, p_y, p_i, p_yi;
+    f = (double*) fftw_malloc(sizeof(double)* M);
     f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
 
     p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
@@ -178,14 +177,14 @@ namespace pic {
     p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
     p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
 
+
     // Columnas FFT
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < M; j++)
         f[j] = rho[(j + 1) * N + k].real();
       fftw_execute(p);
-      for (int j = 0; j < M; j++) {
+      for (int j = 0; j < M; j++)
         rho[(j + 1) * N + k].real() = f[j];
-      }
     }
 
     // Filas FFT
@@ -197,6 +196,8 @@ namespace pic {
         memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
     }
 
+
+
     // Resolver en el espacio de Fourier
     complex<double> i(0.0, 1.0);
     double pi = M_PI;
@@ -205,7 +206,7 @@ namespace pic {
     for (int m = 0; m < M; m++) {
       for (int n = 0; n < N; n++) {
         complex<double> denom = h * h * 2.0 + hy * hy * 2.0;
-        denom -= hy * hy * (2 * cos((m + 1) * pi / (M + 1))) + h * h *(Wn + 1.0 / Wn);
+        denom -= hy * hy * (2 * cos((m + 1) * pi / (M + 1))) + h * h * (Wn + 1.0 / Wn);
         if (denom != 0.0)
           rho[(m + 1) * N + n] *= h * h * hy * hy / denom;
         Wn *= Wy;
@@ -222,28 +223,26 @@ namespace pic {
         rho[(j + 1) * N + k] /= double(N); //La transformada debe ser normalizada.
       }
     }
-*/
 
-    //Inversa C lumnas FFT
+    //Inversa Columnas FFT
     for (int k = 0; k < N; k++) {
-      /*for (int j = 0; j < M; j++)
-        f[j]=rho[(j + 1) * N + k].real();
-      fftw_execute(p_i);*/
       for (int j = 0; j < M; j++)
-        phi[(j + 1) * N + k] = 3;// f[j] / double(2 * (M + 1));
+        f[j]=rho[(j + 1) * N + k].real();
+      fftw_execute(p_i);
+      for (int j = 0; j < M; j++)
+        phi[(j + 1) * N + k] = f[j] / double(2 * (M + 1));
     }
 
     for (int k = 0; k < N; k++) {
-      phi[0 * N + k]=0;
+      phi[k]=0;
       phi[(J_X - 1) * N + k]=0;
     }
 
-    /*fftw_destroy_plan(p);
+    fftw_destroy_plan(p);
     fftw_destroy_plan(p_i);
     fftw_destroy_plan(p_y);
     fftw_destroy_plan(p_yi);
     fftw_free(f); fftw_free(f2);
-    */
   }
 
   //*********************************************************
@@ -329,10 +328,7 @@ namespace pic {
       while(pos_y[i] > L_MAX_Y) //Ciclo en el eje Y.
         pos_y[i] = pos_y[i] - L_MAX_Y;
 
-      while(pos_y[i]<0.0) //Ciclo en el eje Y.
-        pos_y[i] = L_MAX_Y + pos_y[i];
-
-      if(pos_y[i] < 0.0) //Ciclo en el eje Y.
+      while(pos_y[i] < 0.0) //Ciclo en el eje Y.
         pos_y[i] += L_MAX_Y;
 
       if(pos_x[i] >= 0 && pos_x[i] <= L_MAX_X) {
