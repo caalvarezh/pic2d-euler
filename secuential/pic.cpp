@@ -13,8 +13,8 @@ using namespace std;
 namespace pic {
   const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
   const int MAX_SPI     = 10000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 4097;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 2048;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 257;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 128;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   const int X           = 0;
@@ -46,6 +46,7 @@ namespace pic {
   const double M_I = (RAZON_MASAS * E_MASS);                // masa Ión
   const double X0 = (VFLUX_I * T0);                         //Escala de longitud: Distancia recorrida en x por un ión en el tiempo t_0
   const double CTE_E = (RAZON_MASAS * X0 / (VFLUX_I * T0));
+  const double CTE_ER = RAZON_MASAS;
   const double DT = 1.e-5;                                  // Paso temporal
   const double VFLUX_I_magnitud =  std::sqrt(VFLUX_I * VFLUX_I + VFLUX_I * VFLUX_I); // Velocidad de flujo iónico (m/s)  =  sqrt(2*K_BOLTZMANN*Te/(M_PI*M_I))
   const double vflux_e_magnitud =  std::sqrt(VFLUX_E_X * VFLUX_E_X + VFLUX_E_Y * VFLUX_E_Y);
@@ -58,8 +59,11 @@ namespace pic {
   const double L_MAX_X = (((J_X-1) * DELTA_X) / X0);                      // Longitud región de simulación
   const double L_MAX_Y = (((J_Y-1) * DELTA_X) / X0);                      // Longitud región de simulación
 
+  const double cte_rho = pow(E_CHARGE * T0, 2) / (M_I * EPSILON_0 * pow(X0, 3)); //Normalización de EPSILON_0
+  const int    NTe = 1e5;
+  const int    NTI = 1e5;                                  //Número de partículas "reales"
+  const double n_0 = double(NTe);                   // Densidad de partículas
 
-  
   void prueba(int d){
     cout<<"LINE: "<< d <<endl;
   }
@@ -116,17 +120,13 @@ namespace pic {
     else return  v;
   }
 
-  void initialize_Particles (double *pos_e, double *vel_e, double *pos_i, double *vel_i, int li, int le) {
-    for (int i = 0;i<MAX_SPE;i++) {
-      pos_e[i + le] = 0;
-      vel_e[i + le] =  create_Velocities_X (FE_MAXWELL_X, VPHI_E_X);
-      pos_e[i + le + MAX_SPE] = L_MAX_Y / 2.0;
-      vel_e[i + le + MAX_SPE] = create_Velocities_Y(FE_MAXWELL_Y, VPHI_E_Y);
-
-      pos_i[i + li] = 0;
-      vel_i[i + li] = create_Velocities_X (FI_MAXWELL_X, VPHI_I_X);
-      pos_i[i + li + MAX_SPI] = L_MAX_Y / 2.0;
-      vel_i[i + li + MAX_SPI] = create_Velocities_Y (FI_MAXWELL_Y, VPHI_I_Y);
+  void initialize_Particles (double *pos_x, double *pos_y, double *vel_x, double *vel_y,
+      int NSP, int fmax_x, int fmax_y, int vphi_x, int vphi_y) {
+    for (int i = 0; i < MAX_SPE; i++) {
+      pos_x[i + NSP] = 0;
+      vel_x[i + NSP] = create_Velocities_X (fmax_x, vphi_x);
+      pos_y[i + NSP] = L_MAX_Y / 2.0;
+      vel_y[i + NSP] = create_Velocities_Y(fmax_y, vphi_y);
     }
   }
 
@@ -148,7 +148,7 @@ namespace pic {
       jr_y = pos_y[i] / hx; // indice (real) de la posición de la superpartícula
       j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
       temp_y  =  jr_y - j_y;
-
+      
       n[j_y + j_x * J_Y] += (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
       n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
       n[(j_y + 1) + j_x * J_Y] += (1. - temp_x) * temp_y / (hx * hx * hx);
@@ -177,7 +177,6 @@ namespace pic {
     p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
     p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
 
-
     // Columnas FFT
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < M; j++)
@@ -195,8 +194,6 @@ namespace pic {
       for (int k = 0; k < N; k++)
         memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
     }
-
-
 
     // Resolver en el espacio de Fourier
     complex<double> i(0.0, 1.0);

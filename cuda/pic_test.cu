@@ -1,5 +1,5 @@
 #include "pic_cuda.cu"
-
+#define PAR 0
 using namespace std;
 using namespace pic_cuda;
 
@@ -121,6 +121,8 @@ int main() {
       phi[i] =  rand() % 8234;
 
     // Calculo de "densidad de carga 2D del plasma"
+#if PAR
+    cout << "a" << endl;
     tiempo = clock();
     H_Concentration (pos_e_x, pos_e_y, ne, le, hx);// Calcular concentración de superpartículas electrónicas
     gpu_error(cudaGetLastError());
@@ -143,11 +145,11 @@ int main() {
     H_electric_field(phi, E_X, E_Y, hx);
     gpu_error(cudaGetLastError());
     telec += clock() - tiempo;
-
+#endif
     tiempo = clock();
     electric_field(phi, E_X1, E_Y1, hx);
     tselec += clock() - tiempo;
-
+#if PAR
     if(compare(E_X, E_X1, J_X * J_Y))
       cout << "fail ex" << endl;
     if(compare(E_Y, E_Y1, J_X * J_Y))
@@ -183,12 +185,18 @@ int main() {
       cout << "fail velix" << endl;
     if(compare(vel_i_y, vel_iy, MAX_SPE))
       cout << "fail veliy" << endl;
+#endif
   } //Cierre del ciclo principal
   int div = max_it * CLOCKS_PER_SEC;
   cout << std::fixed;
-  cout << "Concentration\nGPU = " << tcon / div << " sec  CPU = " << tscon / div << endl;
-  cout << "Electric field\nGPU = " << telec / div << " sec  CPU = " << tselec / div << endl;
-  cout << "Motion\nGPU = " << tmot / div << " sec CPU = " << tsmot / div << endl;
+#if PAR
+  cout << "Concentration\nGPU = \n\t" << tcon / div << "\nsec  CPU = \n\t" << tscon / div << endl;
+  cout << "Electric field\nGPU = \n\t" << telec / div << "\nsec  CPU = \n\t" << tselec / div << endl;
+  cout << "Motion\nGPU =\n\t" << tmot / div << "\nsec CPU =\n\t" << tsmot / div << endl;
+#endif
+//  cout << "Concentration\nCPU = \n\t" << tscon / div << endl;
+  cout << "Electric field\nCPU = \n\t" << tselec / div << endl;
+//  cout << "Motion\nCPU =\n\t" << tsmot / div << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);

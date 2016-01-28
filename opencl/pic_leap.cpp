@@ -154,7 +154,7 @@ int main() {
       phi[i] =  rand() % 8234;
 
     // Calcular campo eléctrico en puntos de malla
-
+/*
     tiempo = clock();
     H_electric_field(phi, E_X, E_Y, hx, context, program, queue);
     telec += clock() - tiempo;
@@ -167,7 +167,7 @@ int main() {
       cout << "fail ex" << endl;
     if(compare(E_Y, E_Y1, J_X * J_Y))
       cout << "fail ey" << endl;
-
+*/
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     tiempo = clock();
     H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx,

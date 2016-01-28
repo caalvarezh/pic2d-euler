@@ -112,43 +112,43 @@ int main() {
     // imprimir el potencial electroestatico.
     if(kt % 1 != 0) {
       //cout << "le: " << le << " li: " << li << endl;
-      sprintf(buffer,"Poisson%d.data", kt);
-      ofstream dataFile(buffer);
-      for (int j = 0; j < J_X; j++) {
-        double thisx = j * hx;
-        for (int k = 0; k < J_Y; k++) {
-          double thisy = k * hx;
-          dataFile << thisx << '\t' << thisy << '\t' << phi[(j * J_Y) + k] << '\n';
-        }
-        dataFile << '\n';
+    sprintf(buffer,"Poisson%d.data", kt);
+    ofstream dataFile(buffer);
+    for (int j = 0; j < J_X; j++) {
+      double thisx = j * hx;
+      for (int k = 0; k < J_Y; k++) {
+        double thisy = k * hx;
+        dataFile << thisx << '\t' << thisy << '\t' << phi[(j * J_Y) + k] << '\n';
       }
-      dataFile.close();
+      dataFile << '\n';
     }
-    // Avanzar posiciones de superpartículas electrónicas e Iónicas
-    //H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    //H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    dataFile.close();
+  }
+  // Avanzar posiciones de superpartículas electrónicas e Iónicas
+  //H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+  //H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
 
-    Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
-    if(kt % 1 != 0) {
-      cout << " CPU time " << kt / 1000 << " = " << tacum / CLOCKS_PER_SEC << " sec" << endl;
-    }
-    //Salida de función de distribución
-  } //Cierre del ciclo principal
-  free(pos_e_x);
-  free(pos_e_y);
-  free(pos_i_x);
-  free(pos_i_y);
-  free(vel_e_x);
-  free(vel_e_y);
-  free(vel_i_x);
-  free(vel_i_y);
-  free(ne);
-  free(ni);
-  free(phi);
-  free(E_X);
-  free(E_Y);
-  free(rho);
-  //cout << " CPU time = " << double(clock() - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
-  return (0);
+  Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+  Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+  if(kt % 1 != 0) {
+    cout << " CPU time " << kt / 1000 << " = " << tacum / CLOCKS_PER_SEC << " sec" << endl;
+  }
+  //Salida de función de distribución
+} //Cierre del ciclo principal
+free(pos_e_x);
+free(pos_e_y);
+free(pos_i_x);
+free(pos_i_y);
+free(vel_e_x);
+free(vel_e_y);
+free(vel_i_x);
+free(vel_i_y);
+free(ne);
+free(ni);
+free(phi);
+free(E_X);
+free(E_Y);
+free(rho);
+//cout << " CPU time = " << double(clock() - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
+return (0);
 }// FINAL MAIN
