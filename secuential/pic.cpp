@@ -148,7 +148,7 @@ namespace pic {
       jr_y = pos_y[i] / hx; // indice (real) de la posición de la superpartícula
       j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
       temp_y  =  jr_y - j_y;
-      
+
       n[j_y + j_x * J_Y] += (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
       n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
       n[(j_y + 1) + j_x * J_Y] += (1. - temp_x) * temp_y / (hx * hx * hx);
@@ -379,45 +379,6 @@ namespace pic {
       fclose(pFile[i]);
     }
   }
-
-  /*
-     void Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2] , int NSP, char *archivo_X, char *archivo_Y) {
-     double Nc = 100;
-     FILE *pFile[2];
-//pFile[0]  =  fopen(archivo_X,"w"); pFile[1]  =  fopen(archivo_Y,"w");
-int suma = 0;
-int ind = 0;
-double a;
-
-for(int i = 0;i<2;i++) {//Max. & min. velocity values.
-double max = 0;
-double min = 0;
-double dv;
-for (int h = 0;h<NSP;h++) {
-if(vel[h][i]<min)
-min = vel[h][i];//Min. Velocity.
-
-if(vel[h][i]>max)
-max = vel[h][i];//Max. Velocity.
-
-}
-
-dv  =  (max-min)/Nc;
-a = min;//Start velocity counter.
-
-//printf("min = %e max = %e dv =  %e kt = %d #Particulas  =  %d ", min,max, dv,kt, NSP);
-for(ind = 0; ind < Nc;ind++) {
-suma  = 0;
-for (int j = 0;j<NSP;j++) {
-if(a <=  vel[j][i] && vel[j][i] < a + dv)
-suma++;
-}
-//fprintf(pFile[i]," %e  %d  \n", a, suma);
-a  =  a + dv;
-}
-//fclose(pFile[i]);
-}
-}*/
 
 
 }

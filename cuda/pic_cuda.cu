@@ -15,15 +15,14 @@
 
 using namespace std;
 namespace pic_cuda {
-
   const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
-  const int MAX_SPI     = MAX_SPE;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 16384;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 8192;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int MAX_SPI     = 10000;           // Limite (computacional) de Superpartículas iónicas
+  const int J_X         = 257;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 128;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
-//  const int X           = 0;
-//  const int Y           = 1;
+  const int X           = 0;
+  const int Y           = 1;
   const int RAZON_MASAS = 1.98e5;    // M_I/E_MASS (Plata)
 
   const int FACTOR_CARGA_E = 10;
@@ -59,7 +58,7 @@ namespace pic_cuda {
 
   const double NI03D = (FLUJO_INICIAL / VFLUX_I);
   const double NE03D = (FLUJO_INICIAL / VFLUX_E_X);
-  const double LAMBDA_D = sqrt(EPSILON_0 * K_BOLTZMANN * Te / (NE03D * pow(E_CHARGE, 2)));  //Longitud de Debye
+  const double LAMBDA_D = std::sqrt(EPSILON_0 * K_BOLTZMANN * Te / (NE03D * std::pow(E_CHARGE, 2)));  //Longitud de Debye
   const double DELTA_X = (LAMBDA_D);   //Paso espacial
   const double L_MAX_X = (((J_X-1) * DELTA_X) / X0);                      // Longitud región de simulación
   const double L_MAX_Y = (((J_Y-1) * DELTA_X) / X0);                      // Longitud región de simulación
@@ -153,7 +152,6 @@ namespace pic_cuda {
   //**************************************************************************************
   //Determinación del aporte de carga de cada superpartícula sobre las 4 celdas adyacentes
   //**************************************************************************************
-
   void Concentration (double *pos_x, double *pos_y, double *n, int NSP, double hx) {
     int j_x,j_y;
     double temp_x,temp_y;
@@ -169,13 +167,14 @@ namespace pic_cuda {
       jr_y = pos_y[i] / hx; // indice (real) de la posición de la superpartícula
       j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
       temp_y  =  jr_y - j_y;
-
+      
       n[j_y + j_x * J_Y] += (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
       n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
       n[(j_y + 1) + j_x * J_Y] += (1. - temp_x) * temp_y / (hx * hx * hx);
       n[(j_y + 1) + (j_x + 1) * J_Y] += temp_x * temp_y / (hx * hx * hx);
     }
   }
+
 
   // Debido a las sumas atomicas esta funcion no se puede paralelizar en un cluster
   __global__
@@ -258,19 +257,22 @@ namespace pic_cuda {
   //
 
 
+
   void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho, double hx) {
     int M = J_X - 2, N = J_Y;
     double h = hx;
     double hy = hx;
     double *f;
-    fftw_complex *f2;
+    fftw_complex  *f2;
     fftw_plan p, p_y, p_i, p_yi;
-    f= (double*) fftw_malloc(sizeof(double)* M);
+    f = (double*) fftw_malloc(sizeof(double)* M);
     f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+
     p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
     p_y = fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);
     p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
     p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
+
     // Columnas FFT
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < M; j++)
@@ -279,6 +281,7 @@ namespace pic_cuda {
       for (int j = 0; j < M; j++)
         rho[(j + 1) * N + k].real() = f[j];
     }
+
     // Filas FFT
     for (int j = 0; j < M; j++) {
       for (int k = 0; k < N; k++)
@@ -287,6 +290,7 @@ namespace pic_cuda {
       for (int k = 0; k < N; k++)
         memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
     }
+
     // Resolver en el espacio de Fourier
     complex<double> i(0.0, 1.0);
     double pi = M_PI;
@@ -301,6 +305,7 @@ namespace pic_cuda {
         Wn *= Wy;
       }
     }
+
     // Inversa de las filas
     for (int j = 0; j < M; j++) {
       for (int k = 0; k < N; k++)
@@ -311,7 +316,8 @@ namespace pic_cuda {
         rho[(j + 1) * N + k] /= double(N); //La transformada debe ser normalizada.
       }
     }
-    //Inversa C lumnas FFT
+
+    //Inversa Columnas FFT
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < M; j++)
         f[j]=rho[(j + 1) * N + k].real();
@@ -319,10 +325,12 @@ namespace pic_cuda {
       for (int j = 0; j < M; j++)
         phi[(j + 1) * N + k] = f[j] / double(2 * (M + 1));
     }
+
     for (int k = 0; k < N; k++) {
       phi[k]=0;
       phi[(J_X - 1) * N + k]=0;
     }
+
     fftw_destroy_plan(p);
     fftw_destroy_plan(p_i);
     fftw_destroy_plan(p_y);
@@ -348,10 +356,12 @@ namespace pic_cuda {
       E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
 
       E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
-      E_Y[j * J_Y + (J_Y - 1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
+      E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
     }
 
   }
+
+
 
   __global__
     void D_electric_field (double *d_phi, double *d_E_X, double *d_E_Y, double hx) {
