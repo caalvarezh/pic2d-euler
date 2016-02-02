@@ -17,8 +17,8 @@ using namespace std;
 namespace pic_cuda {
   const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
   const int MAX_SPI     = 10000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 257;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 128;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 512;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 256;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   const int X           = 0;
@@ -152,6 +152,7 @@ namespace pic_cuda {
   //**************************************************************************************
   //Determinación del aporte de carga de cada superpartícula sobre las 4 celdas adyacentes
   //**************************************************************************************
+
   void Concentration (double *pos_x, double *pos_y, double *n, int NSP, double hx) {
     int j_x,j_y;
     double temp_x,temp_y;
@@ -167,13 +168,14 @@ namespace pic_cuda {
       jr_y = pos_y[i] / hx; // indice (real) de la posición de la superpartícula
       j_y  = (int) jr_y;    // indice  inferior (entero) de la celda que contiene a la superpartícula
       temp_y  =  jr_y - j_y;
-      
+
       n[j_y + j_x * J_Y] += (1. - temp_x) * (1. - temp_y) / (hx * hx * hx);
       n[j_y + (j_x + 1) * J_Y] += temp_x * (1. - temp_y) / (hx * hx * hx);
       n[(j_y + 1) + j_x * J_Y] += (1. - temp_x) * temp_y / (hx * hx * hx);
       n[(j_y + 1) + (j_x + 1) * J_Y] += temp_x * temp_y / (hx * hx * hx);
     }
   }
+
 
 
   // Debido a las sumas atomicas esta funcion no se puede paralelizar en un cluster
@@ -255,8 +257,6 @@ namespace pic_cuda {
   //Cálculo del Potencial Electrostático en cada uno de los puntos de malla
   //***********************************************************************
   //
-
-
 
   void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho, double hx) {
     int M = J_X - 2, N = J_Y;
@@ -351,7 +351,14 @@ namespace pic_cuda {
         E_X[(J_X - 1) * J_Y + k] = 0.0;
         E_Y[(J_X - 1) * J_Y + k] = 0.0;
       }
-
+      E_X[0] = 0.0;  //Cero en las fronteras X
+      E_Y[0] = 0.0;
+      E_X[J_Y - 1] = 0.0;  //Cero en las fronteras X
+      E_Y[J_Y - 1] = 0.0;
+      E_X[(J_X - 1) * J_Y] = 0.0;
+      E_Y[(J_X - 1) * J_Y] = 0.0;
+      E_X[(J_X - 1) * J_Y + (J_Y - 1)] = 0.0;
+      E_Y[(J_X - 1) * J_Y + (J_Y - 1)] = 0.0;
       E_X[j * J_Y] = (phi[(j - 1) * J_Y] - phi[((j + 1) * J_Y + 0)]) / (2. * hx);
       E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
 
@@ -362,14 +369,13 @@ namespace pic_cuda {
   }
 
 
-
   __global__
     void D_electric_field (double *d_phi, double *d_E_X, double *d_E_Y, double hx) {
       int j = (blockIdx.x * blockDim.x + threadIdx.x);
       int k = (blockIdx.y * blockDim.y + threadIdx.y);
       if(j < J_X && k < J_Y) {
-        d_E_X[j * J_Y + k] = (d_phi[(j - 1) * J_Y + k] - d_phi[(j + 1) * J_Y + k]) / (2. * hx);
-        d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + ((J_Y + k - 1) % J_Y)] - d_phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
+        //d_E_X[j * J_Y + k] = (d_phi[(j - 1) * J_Y + k] - d_phi[(j + 1) * J_Y + k]) / (2. * hx);
+        //d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + ((J_Y + k - 1) % J_Y)] - d_phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
       }
     }
 
@@ -397,8 +403,9 @@ namespace pic_cuda {
     dim3 dimBlock(BLOCK_SIZE2, BLOCK_SIZE2, 1);
     dim3 dimGrid3(ceil(float(J_X) / BLOCK_SIZE2), ceil(double(J_Y) / BLOCK_SIZE2), 1);
     D_electric_field<<< dimGrid3, dimBlock >>> (d_phi, d_E_X, d_E_Y, hx);
-    dim3 dimBlock1(BLOCK_SIZE2, 1, 1);
-    dim3 dimGrid31(ceil(float(J_Y) / BLOCK_SIZE2), 1, 1);
+
+    dim3 dimBlock1(BLOCK_SIZE, 1, 1);
+    dim3 dimGrid31(ceil(float(J_Y) / BLOCK_SIZE), 1, 1);
     D_electric_field_border<<< dimGrid31, dimBlock1 >>> (d_phi, d_E_X, d_E_Y, hx);
 
     cudaMemcpy(h_E_X,d_E_X, size1, cudaMemcpyDeviceToHost);
@@ -537,12 +544,14 @@ namespace pic_cuda {
 
   }
 
-void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP, int especie,
+
+  void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP, int especie,
      double *E_X, double *E_Y, double hx, int &total_perdidos, double &mv2perdidas) {
     int j_x,j_y;
     double temp_x,temp_y,Ep_X, Ep_Y,fact;
     double jr_x,jr_y;
-    int kk1 = 0, conteo_perdidas = 0;
+    int kk1 = 0;
+    int conteo_perdidas = 0;
 
     if(especie ==  ELECTRONS)
       fact = FACT_EL;
@@ -577,16 +586,24 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
         pos_x[i] = -pos_x[i];
         vel_x[i] = -vel_x[i];
       }
-      if(pos_x[i] >= L_MAX_X) {
+
+      if (pos_x[i] >= L_MAX_X) {//Partícula fuera del espacio de Simulación
         conteo_perdidas++;
+        total_perdidos++;
+        if(especie  ==  ELECTRONS) {
+          //printf("Electron perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel_x[i] * vel_x[i] + vel_y[i] * vel_y[i]) , 2);
+        }
+        else {
+          //printf("Ion perdido No. %d,  i = %d, kt = %d \n",total_perdidos, i ,kt);
+          mv2perdidas+= pow( sqrt(vel_x[i] * vel_x[i] + vel_y[i] * vel_y[i]), 2) / (RAZON_MASAS);
+        }
       }
+
       while(pos_y[i] > L_MAX_Y) //Ciclo en el eje Y.
         pos_y[i] = pos_y[i] - L_MAX_Y;
 
-      while(pos_y[i]<0.0) //Ciclo en el eje Y.
-        pos_y[i] = L_MAX_Y + pos_y[i];
-
-      if(pos_y[i] < 0.0) //Ciclo en el eje Y.
+      while(pos_y[i] < 0.0) //Ciclo en el eje Y.
         pos_y[i] += L_MAX_Y;
 
       if(pos_x[i] >= 0 && pos_x[i] <= L_MAX_X) {
@@ -599,9 +616,9 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
 
       //Salida espacio de Fase
     }
+
     NSP -= conteo_perdidas;
   }
-
 
   void Funcion_Distribucion(double *pos, double *vel, int NSP, char *archivo_X, char *archivo_Y) {
     double Nc = 100;
@@ -640,44 +657,5 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
       fclose(pFile[i]);
     }
   }
-
-  /*
-     void Funcion_Distribucion(double pos[MAX_SPE][2], double vel[MAX_SPE][2] , int NSP, char *archivo_X, char *archivo_Y) {
-     double Nc = 100;
-     FILE *pFile[2];
-//pFile[0]  =  fopen(archivo_X,"w"); pFile[1]  =  fopen(archivo_Y,"w");
-int suma = 0;
-int ind = 0;
-double a;
-
-for(int i = 0;i<2;i++) {//Max. & min. velocity values.
-double max = 0;
-double min = 0;
-double dv;
-for (int h = 0;h<NSP;h++) {
-if(vel[h][i]<min)
-min = vel[h][i];//Min. Velocity.
-
-if(vel[h][i]>max)
-max = vel[h][i];//Max. Velocity.
-
-}
-
-dv  =  (max-min)/Nc;
-a = min;//Start velocity counter.
-
-//printf("min = %e max = %e dv =  %e kt = %d #Particulas  =  %d ", min,max, dv,kt, NSP);
-for(ind = 0; ind < Nc;ind++) {
-suma  = 0;
-for (int j = 0;j<NSP;j++) {
-if(a <=  vel[j][i] && vel[j][i] < a + dv)
-suma++;
-}
-//fprintf(pFile[i]," %e  %d  \n", a, suma);
-a  =  a + dv;
-}
-//fclose(pFile[i]);
-}
-}*/
 
 }

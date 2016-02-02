@@ -1,5 +1,7 @@
 #include "pic_cuda.cu"
-#define PAR 0
+#define ELE 1
+#define CON 0
+#define MOT 0
 using namespace std;
 using namespace pic_cuda;
 
@@ -11,11 +13,17 @@ inline void gpu_assert(cudaError_t code, int line){
 }
 
 bool compare(double *c1, double *c2, int size) {
+  int cont = 0;
   for(int i = 0; i < size; i++) {
     if(fabs(c1[i] - c2[i]) > 1e-3) {
-      return true;
-      //cout << c1[i] << " - " << c2[i] << endl;
+      cout << "Fail in " << i << endl;
+      cout << c1[i] << " " << c2[i] << endl;
+      cont++;
     }
+  }
+  if(cont > 0) {
+    cout << "total " << cont << " fails" << endl;
+    return true;
   }
   return false;
 }
@@ -98,7 +106,7 @@ int main() {
   //***************************
 
   double hx = DELTA_X / X0;                            // Paso espacial
-  int max_it = 10;
+  int max_it = 1;
 
   double tcon, tscon, telec, tselec, tmot, tsmot;
   tcon = tscon = telec = tselec = tmot = tsmot = 0.0 ;
@@ -121,8 +129,7 @@ int main() {
       phi[i] =  rand() % 8234;
 
     // Calculo de "densidad de carga 2D del plasma"
-#if PAR
-    cout << "a" << endl;
+#if CON
     tiempo = clock();
     H_Concentration (pos_e_x, pos_e_y, ne, le, hx);// Calcular concentración de superpartículas electrónicas
     gpu_error(cudaGetLastError());
@@ -141,20 +148,26 @@ int main() {
       cout << "fail ni" << endl;
 
     // Calcular campo eléctrico en puntos de malla
+#endif
+
+#if ELE
     tiempo = clock();
     H_electric_field(phi, E_X, E_Y, hx);
     gpu_error(cudaGetLastError());
     telec += clock() - tiempo;
-#endif
+
     tiempo = clock();
     electric_field(phi, E_X1, E_Y1, hx);
     tselec += clock() - tiempo;
-#if PAR
-    if(compare(E_X, E_X1, J_X * J_Y))
-      cout << "fail ex" << endl;
-    if(compare(E_Y, E_Y1, J_X * J_Y))
-      cout << "fail ey" << endl;
 
+    if(compare(E_X, E_X1, J_X * J_Y))
+      cout << "----- fail ex -----" << endl << endl;
+
+    if(compare(E_Y, E_Y1, J_X * J_Y))
+      cout << "----- fail ey -----" << endl << endl;
+#endif
+
+#if MOT
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     tiempo = clock();
     H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
@@ -189,14 +202,9 @@ int main() {
   } //Cierre del ciclo principal
   int div = max_it * CLOCKS_PER_SEC;
   cout << std::fixed;
-#if PAR
   cout << "Concentration\nGPU = \n\t" << tcon / div << "\nsec  CPU = \n\t" << tscon / div << endl;
   cout << "Electric field\nGPU = \n\t" << telec / div << "\nsec  CPU = \n\t" << tselec / div << endl;
   cout << "Motion\nGPU =\n\t" << tmot / div << "\nsec CPU =\n\t" << tsmot / div << endl;
-#endif
-//  cout << "Concentration\nCPU = \n\t" << tscon / div << endl;
-  cout << "Electric field\nCPU = \n\t" << tselec / div << endl;
-//  cout << "Motion\nCPU =\n\t" << tsmot / div << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);
