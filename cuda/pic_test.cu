@@ -1,7 +1,7 @@
 #include "pic_cuda.cu"
-#define ELE 1
+#define ELE 0
 #define CON 0
-#define MOT 0
+#define MOT 1
 using namespace std;
 using namespace pic_cuda;
 
@@ -15,7 +15,7 @@ inline void gpu_assert(cudaError_t code, int line){
 bool compare(double *c1, double *c2, int size) {
   int cont = 0;
   for(int i = 0; i < size; i++) {
-    if(fabs(c1[i] - c2[i]) > 1e-3) {
+    if(fabs(c1[i] - c2[i]) > 1e-2) {
       cout << "Fail in " << i << endl;
       cout << c1[i] << " " << c2[i] << endl;
       cont++;
