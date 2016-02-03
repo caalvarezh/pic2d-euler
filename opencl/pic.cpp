@@ -16,8 +16,8 @@ namespace pic_cl {
   int db = 0;
   const int MAX_SPE     = 1024;           // Limite (computacional) de Superpartículas electrónicas
   //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 256;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 256;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 4;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 4;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   //  const int X           = 0;
@@ -257,20 +257,16 @@ namespace pic_cl {
 
     for (int j = 1; j < J_X - 1; j++) {
       for (int k = 0; k < J_Y; k++) {
-        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
-        E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
+        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k]
+            - phi[(j + 1) * J_Y + k]) / (2. * hx);
+        E_Y[j * J_Y + k] = (phi[j * J_Y + ((J_Y + k - 1) % J_Y)]
+            - phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
 
         E_X[k] = 0.0;  //Cero en las fronteras X
         E_Y[k] = 0.0;
         E_X[(J_X - 1) * J_Y + k] = 0.0;
         E_Y[(J_X - 1) * J_Y + k] = 0.0;
       }
-
-      E_X[j * J_Y] = (phi[(j - 1) * J_Y] - phi[((j + 1) * J_Y + 0)]) / (2. * hx);
-      E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
-
-      E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
-      E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
     }
   }
 
@@ -305,9 +301,9 @@ namespace pic_cl {
     error = D_electric_field.setArg(3, hx);
     checkErr(error, "set arg 4");
     error = D_electric_field.setArg(4, J_X);
-    checkErr(error, "set arg 4");
+    checkErr(error, "set arg 5");
     error = D_electric_field.setArg(5, J_Y);
-    checkErr(error, "set arg 4");
+    checkErr(error, "set arg 6");
     // Execute the kernel
     cl::NDRange global(BLOCK_SIZE2, BLOCK_SIZE2, 1);
     //checkErr(error, "global");
@@ -316,7 +312,7 @@ namespace pic_cl {
     error = queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global, local);
     checkErr(error, "call kernel");
 
-
+/*
     cl::Kernel D_electric_field_border(program, "D_electric_field_border");
     // Set the kernel arguments
     error = D_electric_field_border.setArg(0, d_E_X);
@@ -334,7 +330,7 @@ namespace pic_cl {
     cl::NDRange local1(ceil(double(J_Y) / BLOCK_SIZE2), 1, 1);
     error = queue.enqueueNDRangeKernel(D_electric_field_border, cl::NullRange, global1, local1);
     checkErr(error, "call kernel");
-
+*/
     // get the answer and free memory
     // Copy the output data back to the host
     error = queue.enqueueReadBuffer(d_E_X, CL_TRUE, 0, size, h_E_X);

@@ -23,6 +23,11 @@ __kernel void D_electric_field (__global double *d_phi,
     d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + ((J_Y + k - 1) % J_Y)]
                          - d_phi[j * J_Y + ((k + 1) % J_Y)])
                          / (2. * hx);
+
+    d_E_X[k] = 0.0; //Cero en las fronteras X
+    d_E_Y[k] = 0.0;
+    d_E_X[(J_X - 1) * J_Y + k] = 0.0;
+    d_E_Y[(J_X - 1) * J_Y + k] = 0.0;
   }
 }
 
@@ -48,10 +53,11 @@ void D_Motion(__global double *pos_x, __global double *pos_y,
       (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
       temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-    Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y]; +
+    Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
       temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
       (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
       temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
 
     vel_x[i] += (DT * fact) * Ep_X;
     vel_y[i] += (DT * fact) * Ep_Y;
