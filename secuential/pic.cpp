@@ -246,9 +246,11 @@ namespace pic {
   void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
 
     for (int j = 1; j < J_X - 1; j++) {
-      for (int k = 1; k < J_Y - 1; k++) {
-        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
-        E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
+      for (int k = 0; k < J_Y; k++) {
+        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k]
+            - phi[(j + 1) * J_Y + k]) / (2. * hx);
+        E_Y[j * J_Y + k] = (phi[j * J_Y + ((J_Y + k - 1) % J_Y)]
+            - phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
 
         E_X[k] = 0.0;  //Cero en las fronteras X
         E_Y[k] = 0.0;
@@ -256,11 +258,6 @@ namespace pic {
         E_Y[(J_X - 1) * J_Y + k] = 0.0;
       }
 
-      E_X[j * J_Y] = (phi[(j - 1) * J_Y] - phi[((j + 1) * J_Y + 0)]) / (2. * hx);
-      E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
-
-      E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
-      E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
     }
 
   }

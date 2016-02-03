@@ -15,10 +15,10 @@
 
 using namespace std;
 namespace pic_cuda {
-  const int MAX_SPE     = 10000;           // Limite (computacional) de Superpartículas electrónicas
-  const int MAX_SPI     = 10000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 512;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 256;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int MAX_SPE     = 100000;           // Limite (computacional) de Superpartículas electrónicas
+  const int MAX_SPI     = 100000;           // Limite (computacional) de Superpartículas iónicas
+  const int J_X         = 1024;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 512;           // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   const int X           = 0;
@@ -342,28 +342,17 @@ namespace pic_cuda {
   void electric_field(double *phi, double *E_X, double *E_Y, double hx) {
 
     for (int j = 1; j < J_X - 1; j++) {
-      for (int k = 1; k < J_Y - 1; k++) {
-        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k] - phi[(j + 1) * J_Y + k]) / (2. * hx);
-        E_Y[j * J_Y + k] = (phi[j * J_Y + (k - 1)] - phi[j * J_Y + (k + 1)]) / (2. * hx);
+      for (int k = 0; k < J_Y; k++) {
+        E_X[j * J_Y + k] = (phi[(j - 1) * J_Y + k]
+            - phi[(j + 1) * J_Y + k]) / (2. * hx);
+        E_Y[j * J_Y + k] = (phi[j * J_Y + ((J_Y + k - 1) % J_Y)]
+            - phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
 
         E_X[k] = 0.0;  //Cero en las fronteras X
         E_Y[k] = 0.0;
         E_X[(J_X - 1) * J_Y + k] = 0.0;
         E_Y[(J_X - 1) * J_Y + k] = 0.0;
       }
-      E_X[0] = 0.0;  //Cero en las fronteras X
-      E_Y[0] = 0.0;
-      E_X[J_Y - 1] = 0.0;  //Cero en las fronteras X
-      E_Y[J_Y - 1] = 0.0;
-      E_X[(J_X - 1) * J_Y] = 0.0;
-      E_Y[(J_X - 1) * J_Y] = 0.0;
-      E_X[(J_X - 1) * J_Y + (J_Y - 1)] = 0.0;
-      E_Y[(J_X - 1) * J_Y + (J_Y - 1)] = 0.0;
-      E_X[j * J_Y] = (phi[(j - 1) * J_Y] - phi[((j + 1) * J_Y + 0)]) / (2. * hx);
-      E_Y[j * J_Y] = (phi[j * J_Y + (J_Y - 1)] - phi[j * J_Y + 1]) / (2. * hx);
-
-      E_X[j * J_Y + (J_Y - 1)] = (phi[(j - 1) * J_Y + (J_Y - 1)] - phi[(j + 1) * J_Y + (J_Y - 1)]) / (2. * hx);
-      E_Y[j * J_Y + (J_Y-1)] = (phi[j * J_Y + (J_Y - 2)] - phi[j * J_Y]) / (2. * hx);
     }
 
   }
@@ -371,11 +360,15 @@ namespace pic_cuda {
 
   __global__
     void D_electric_field (double *d_phi, double *d_E_X, double *d_E_Y, double hx) {
-      int j = (blockIdx.x * blockDim.x + threadIdx.x);
+      int j = (blockIdx.x * blockDim.x + threadIdx.x) + 1;
       int k = (blockIdx.y * blockDim.y + threadIdx.y);
-      if(j < J_X && k < J_Y) {
-        //d_E_X[j * J_Y + k] = (d_phi[(j - 1) * J_Y + k] - d_phi[(j + 1) * J_Y + k]) / (2. * hx);
-        //d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + ((J_Y + k - 1) % J_Y)] - d_phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
+      if(j < J_X - 1 && k < J_Y) {
+        d_E_X[j * J_Y + k] = (d_phi[(j - 1) * J_Y + k] - d_phi[(j + 1) * J_Y + k]) / (2. * hx);
+        d_E_Y[j * J_Y + k] = (d_phi[j * J_Y + ((J_Y + k - 1) % J_Y)] - d_phi[j * J_Y + ((k + 1) % J_Y)]) / (2. * hx);
+        d_E_X[k] = 0.0; //Cero en las fronteras X
+        d_E_Y[k] = 0.0;
+        d_E_X[(J_X - 1) * J_Y + k] = 0.0;
+        d_E_Y[(J_X - 1) * J_Y + k] = 0.0;
       }
     }
 
@@ -403,13 +396,13 @@ namespace pic_cuda {
     dim3 dimBlock(BLOCK_SIZE2, BLOCK_SIZE2, 1);
     dim3 dimGrid3(ceil(float(J_X) / BLOCK_SIZE2), ceil(double(J_Y) / BLOCK_SIZE2), 1);
     D_electric_field<<< dimGrid3, dimBlock >>> (d_phi, d_E_X, d_E_Y, hx);
-
+/*
     dim3 dimBlock1(BLOCK_SIZE, 1, 1);
     dim3 dimGrid31(ceil(float(J_Y) / BLOCK_SIZE), 1, 1);
     D_electric_field_border<<< dimGrid31, dimBlock1 >>> (d_phi, d_E_X, d_E_Y, hx);
-
-    cudaMemcpy(h_E_X,d_E_X, size1, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_E_Y,d_E_Y, size1, cudaMemcpyDeviceToHost);
+*/
+    cudaMemcpy(h_E_X, d_E_X, size1, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_E_Y, d_E_Y, size1, cudaMemcpyDeviceToHost);
     cudaFree(d_E_X);
     cudaFree(d_E_Y);
     cudaFree(d_phi);
@@ -435,13 +428,10 @@ namespace pic_cuda {
           (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
           temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-
-
         Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
           temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
           (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
           temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
-
 
         vel_x[i] += DT * fact * Ep_X;
         vel_y[i] += DT * fact * Ep_Y;
@@ -480,14 +470,15 @@ namespace pic_cuda {
 
     int size  = NSP * sizeof(double);
     int size1 = J_X * J_Y * sizeof(double);
+    int size2 = NSP * sizeof(bool);
     double *d_pos_x, *d_pos_y, *d_vel_x, *d_vel_y, *d_E_X, *d_E_Y;
     bool *d_visit, *h_visit;
-    h_visit = (bool *) malloc((size / 2));
+    h_visit = (bool *) malloc(size2);
     cudaMalloc(&d_pos_x, size);
     cudaMalloc(&d_pos_y, size);
     cudaMalloc(&d_vel_x, size);
     cudaMalloc(&d_vel_y, size);
-    cudaMalloc(&d_visit, size / 2);
+    cudaMalloc(&d_visit, size2);
     cudaMalloc(&d_E_X, size1);
     cudaMalloc(&d_E_Y, size1);
     cudaMemcpy(d_pos_x, h_pos_x, size, cudaMemcpyHostToDevice);
@@ -496,7 +487,7 @@ namespace pic_cuda {
     cudaMemcpy(d_vel_y, h_vel_y, size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_E_X, h_E_X, size1, cudaMemcpyHostToDevice);
     cudaMemcpy(d_E_Y, h_E_Y, size1, cudaMemcpyHostToDevice);
-    cudaMemset(d_visit, true, size / 2);
+    cudaMemset(d_visit, true, size2);
 
     dim3 dimBlock(BLOCK_SIZE,1,1);
     dim3 dimGrid(ceil(NSP/float(BLOCK_SIZE)),1, 1);
