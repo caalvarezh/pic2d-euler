@@ -1,7 +1,7 @@
 #include "pic_cuda.cu"
-#define ELE 0
+#define ELE 1
 #define CON 0
-#define MOT 1
+#define MOT 0
 using namespace std;
 using namespace pic_cuda;
 

@@ -5,12 +5,17 @@ using namespace pic_cl;
 
 bool compare(double *c1, double *c2, int size) {
   bool flag = false;
+  int cont = 0;
   for(int i = 0; i < size; i++) {
-    if(fabs(c1[i] - c2[i]) > 1e-2) {
+    if(fabs(c1[i] - c2[i]) > 1) {
       cout << i << " : " << c1[i] << " -  " << c2[i] << " = " << fabs(c1[i] - c2[i])<< endl;
+      //cont++;
       flag = true;
+      return flag;
     }
   }
+  if(cont > 0)
+    cout << "fail in " << cont << " of " << size << " = " << size - cont << endl;
   return flag;
 }
 
@@ -154,7 +159,6 @@ int main() {
       phi[i] =  rand() % 8234;
 
     // Calcular campo eléctrico en puntos de malla
-
     tiempo = clock();
     H_electric_field(phi, E_X, E_Y, hx, context, program, queue);
     telec += clock() - tiempo;
@@ -168,17 +172,20 @@ int main() {
     if(compare(E_Y, E_Y1, J_X * J_Y))
       cout << "fail ey" << endl;
 
-/*
     // Avanzar posiciones de superpartículas electrónicas e Iónicas
     tiempo = clock();
+    cout << "S ELEC" << endl;
     H_Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx,
         total_e_perdidos, mv2perdidas, context, program, queue);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    cout << "S ION" << endl;
     H_Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx,
         total_i_perdidos, mv2perdidas, context, program, queue);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     tmot += clock() - tiempo;
 
     tiempo = clock();
+    cout << "H ELEC" << endl;
     Motion(pos_ex, pos_ey, vel_ex, vel_ey, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    cout << "H ION" << endl;
     Motion(pos_ix, pos_iy, vel_ix, vel_iy, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     tsmot += clock() - tiempo;
 
@@ -215,9 +222,9 @@ int main() {
     if(compare(vel_i_y, vel_iy, MAX_SPE))
       cout << "fail veliy" << endl;
     else
-      cout << "success veliy" << endl; */
-
+      cout << "success veliy" << endl;
   } //Cierre del ciclo principal
+  cout << fixed;
   cout << " GPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
   cout << " CPU time Electric field =  " << tselec / CLOCKS_PER_SEC << " sec" << endl;
   cout << " Electric field X = " << tselec / telec << endl;

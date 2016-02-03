@@ -1,5 +1,5 @@
-#define BLOCK_SIZE 510
-#define BLOCK_SIZE2 16
+#define BLOCK_SIZE 1024
+#define BLOCK_SIZE2 32
 #include <CL/cl.hpp>
 #include <iostream>
 #include <cstdlib>
@@ -14,10 +14,10 @@
 using namespace std;
 namespace pic_cl {
   int db = 0;
-  const int MAX_SPE     = 1024;           // Limite (computacional) de Superpartículas electrónicas
+  const int MAX_SPE     = 100000000;           // Limite (computacional) de Superpartículas electrónicas
   //  const int MAX_SPI     = 1000;           // Limite (computacional) de Superpartículas iónicas
-  const int J_X         = 4;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-  const int J_Y         = 4;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
+  const int J_X         = 2048;           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+  const int J_Y         = 1024;         // Número de puntos de malla Y. Recomendado: Del orden 2^n
   const int ELECTRONS   = 0;
   const int IONS        = 1;
   //  const int X           = 0;
@@ -305,11 +305,9 @@ namespace pic_cl {
     error = D_electric_field.setArg(5, J_Y);
     checkErr(error, "set arg 6");
     // Execute the kernel
-    cl::NDRange global(BLOCK_SIZE2, BLOCK_SIZE2, 1);
+    cl::NDRange global(J_X, J_Y);
     //checkErr(error, "global");
-    cl::NDRange local(ceil(float(J_X) / BLOCK_SIZE2), ceil(double(J_Y) / BLOCK_SIZE2), 1);
-    //checkErr(error, "local");
-    error = queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global, local);
+    error = queue.enqueueNDRangeKernel(D_electric_field, cl::NullRange, global, cl::NullRange);
     checkErr(error, "call kernel");
 
 /*
@@ -364,10 +362,11 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
         (1 - temp_x) * temp_y * E_X[j_x * J_Y + (j_y + 1)] +
         temp_x * temp_y * E_X[(j_x + 1) * J_Y + (j_y + 1)];
 
-      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y]; +
+      Ep_Y = (1 - temp_x) * (1 - temp_y) * E_Y[j_x * J_Y + j_y] +
         temp_x * (1 - temp_y) * E_Y[(j_x + 1) * J_Y + j_y] +
         (1 - temp_x) * temp_y * E_Y[j_x * J_Y + (j_y + 1)] +
         temp_x * temp_y * E_Y[(j_x + 1) * J_Y + (j_y + 1)];
+
 
       vel_x[i] += (DT * fact) * Ep_X;
       vel_y[i] += (DT * fact) * Ep_Y;
@@ -454,9 +453,9 @@ void Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int &NSP
     D_Motion.setArg(12, J_X);
     D_Motion.setArg(13, J_Y);
     // Execute the kernel
-    cl::NDRange global(BLOCK_SIZE, 1, 1);
-    cl::NDRange local(ceil(float(NSP) / BLOCK_SIZE), 1, 1);
-    queue.enqueueNDRangeKernel(D_Motion, cl::NullRange, global, local);
+    cl::NDRange global(NSP);
+    //cl::NDRange local(ceil(float(NSP) / BLOCK_SIZE));
+    queue.enqueueNDRangeKernel(D_Motion, cl::NullRange, global, cl::NullRange);
 
     // get the answer and free memory
     queue.enqueueReadBuffer(d_pos_x, CL_TRUE, 0, size, h_pos_x);
