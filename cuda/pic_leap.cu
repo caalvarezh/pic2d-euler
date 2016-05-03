@@ -99,9 +99,11 @@ int main() {
   initialize_Particles (pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, FE_MAXWELL_X, FE_MAXWELL_Y, VPHI_E_X, VPHI_E_Y);//Velocidades y posiciones iniciales de las partículas>
   initialize_Particles (pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, FI_MAXWELL_X, FI_MAXWELL_Y, VPHI_I_X, VPHI_I_Y);//Velocidades y posiciones iniciales de las partículas>
 
-  double tacum = 0;
+  double tacum = 0, tacum1 = 0;
+  clock_t t0, t1;
+  t0 = clock();
   for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
-    cout << kt << endl;
+    //cout << kt << endl;
     /*if(kt % 50000 == 0) {
       printf("kt = %d\n", kt);
       printf("le = %d   li = %d \n",le, li );
@@ -121,11 +123,11 @@ int main() {
         rho[j * J_Y + k] = cte_rho * FACTOR_CARGA_E * (ni[j * J_Y + k] - ne[j * J_Y + k]) / n_0;
 
     // Calcular potencial eléctrico en puntos de malla
-    poisson2D_dirichletX_periodicY(phi, rho, hx);
+    t1 = clock();
+    H_poisson2D_dirichletX_periodicY(phi, rho, hx);
+    tacum1 += double(clock() - t1);
     // Calcular campo eléctrico en puntos de malla
-
     electric_field(phi, E_X, E_Y, hx);
-
     // imprimir el potencial electroestatico.
     if(kt % 10000  ==  0) {
       sprintf(buffer,"Poisson%d.data", kt);
@@ -146,13 +148,22 @@ int main() {
     Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
     Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
 
+    tacum += double(clock() - t0);
+    t0 = clock();
     clock_t tiempo1  =  clock();
-    if(kt % 5000 == 0) {
+    if(kt % 5000 == 0 and kt != 0) {
       cout << " CPU time " << kt / 5000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
       tiempo0  =  clock();
+      break;
     }
   } //Cierre del ciclo principal
 
+  cout << "total " << tacum / CLOCKS_PER_SEC << " parcial " << tacum1 / CLOCKS_PER_SEC << endl;
+  //tacum = clock() - t0;
+  tacum = (tacum / (5000 * CLOCKS_PER_SEC));
+  tacum1 = (tacum1 / (5000 * CLOCKS_PER_SEC));
+  double out = (tacum1 * 100) / tacum;
+  cout << "% " << out << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);
