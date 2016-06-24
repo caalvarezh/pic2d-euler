@@ -37,12 +37,18 @@ int main() {
   // Parámetros del sistema
   //************************
 
-  int le = MAX_SPE, li = MAX_SPE;
+  int le = 0, li = 0;
+  double  t_0, x_0;
   int  total_e_perdidos = 0;
   int  total_i_perdidos = 0;
   double  mv2perdidas = 0;
 
   double  ND = NE03D * pow(LAMBDA_D,3);                          //Parámetro del plasma
+  int     k_MAX_inj;   //Tiempo máximo de inyección
+  int     K_total;     //Tiempo total
+  int     Ntv = 8;
+  int     NTSPe, NTSPI, MAX_SPE_dt, MAX_SPI_dt;
+  double  phi0 = 2. * K_BOLTZMANN * Te / (M_PI * E_CHARGE ), E0 = phi0 / X0;
  // FILE    *outEnergia;
 
 
@@ -51,8 +57,19 @@ int main() {
   //***************************
 
   //double  X0 = LAMBDA_D;                //Escala de longitud: Longitud de Debye
+  double  n0  =  double(NTe) / (X0 * X0 * X0);
   double  ni0_3D  =  NI03D * pow(X0, 3);
   double  ne0_3D  =  NE03D * pow(X0, 3);
+  double  om_p  =  VFLUX_E_X / LAMBDA_D;                    //Frecuencia del plasma
+  double hx;
+  
+                       //Parámetro del plasma
+ // FILE    *outEnergia;
+
+
+  //***************************
+  //Constantes de normalización
+  //***************************
 
   int size = MAX_SPE * sizeof(double);
   int size1 = J_X * J_Y * sizeof(double);
