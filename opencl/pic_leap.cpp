@@ -70,13 +70,16 @@ int main() {
   //***************************
   //Constantes de normalización
   //***************************
-
+  char buffer[40];
   int size = MAX_SPE * sizeof(double);
   int size1 = J_X * J_Y * sizeof(double);
-
+  int size2 = J_X * J_Y * sizeof(complex<double>);
+  
   double *pos_e_x, *pos_e_y, *pos_i_x, *pos_i_y, *vel_e_x, *vel_e_y, *vel_i_x, *vel_i_y,
          *phi, *E_X, *E_Y, *E_X1, *E_Y1, *pos_ex, *pos_ey, *vel_ex, *vel_ey,
-         *pos_ix, *pos_iy, *vel_ix, *vel_iy;
+         *pos_ix, *pos_iy, *vel_ix, *vel_iy, *ne, *ni;;
+  
+  complex<double> *rho;
   //double  E_i,E_e,E_field,E_total,E_perdida;
 
   pos_e_x = (double *) malloc(size);
@@ -104,7 +107,10 @@ int main() {
   vel_iy = (double *) malloc(size);
   E_X1  = (double *) malloc(size1);
   E_Y1  = (double *) malloc(size1);
+  ne    = (double *) malloc(size1);
+  ni = (double *) malloc(size1);
 
+  rho = (complex<double> *) malloc(size2);
   /*
   ** OpenCL precompute
   */
