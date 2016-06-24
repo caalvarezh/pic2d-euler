@@ -135,6 +135,86 @@ int main() {
   // Normalización de variables
   //***************************
 
+  t_0 = 1;
+  x_0 = 1;
+  hx = DELTA_X / X0;                            // Paso espacial
+  NTSPe = NTe / FACTOR_CARGA_E;
+  NTSPI = NTI / FACTOR_CARGA_I; // Número total de superpartículas
+  // Inyectadas en un tiempo T0.
+  // ( =  número de superpartículas
+  // Inyectadas por unidad de tiempo,
+  // puesto que T0*(normalizado) = 1.
+
+  int Kemision = 20;  //Pasos para liberar partículas
+  double dt_emision = Kemision * DT; //Tiempo para liberar partículas
+
+  MAX_SPE_dt = NTSPe * dt_emision;   //Número de Superpartículas el. liberadas cada vez.
+  MAX_SPI_dt = MAX_SPE_dt;
+
+
+  // Ciclo de tiempo
+
+  k_MAX_inj = t_0 / DT;
+  K_total = Ntv * k_MAX_inj;
+
+  initialize_Particles (pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, FE_MAXWELL_X, FE_MAXWELL_Y, VPHI_E_X, VPHI_E_Y);//Velocidades y posiciones iniciales de las partículas>
+  initialize_Particles (pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, FI_MAXWELL_X, FI_MAXWELL_Y, VPHI_I_X, VPHI_I_Y);//Velocidades y posiciones iniciales de las partículas>
+
+  double tacum = 0;
+  for(int kk  =  0, kt  =  0; kt <= K_total; kt++) {
+    cout << kt << endl;
+    /*if(kt % 50000 == 0) {
+      printf("kt = %d\n", kt);
+      printf("le = %d   li = %d \n",le, li );
+    }*/
+    if(kt <= k_MAX_inj && kt == kk) {// Inyectar superpartículas (i-e)
+      le+= MAX_SPE_dt;
+      li+= MAX_SPI_dt;
+      kk = kk + Kemision;
+    }
+    //-----------------------------------------------
+    // Calculo de "densidad de carga 2D del plasma"
+    Concentration (pos_e_x, pos_e_y, ne, le, hx);// Calcular concentración de superpartículas electrónicas
+    Concentration (pos_i_x, pos_i_y, ni, li, hx);// Calcular concentración de superpartículas Iónicas
+
+    for (int j  =  0; j < J_X; j++)
+      for (int k  =  0; k < J_Y; k++)
+        rho[j * J_Y + k] = cte_rho * FACTOR_CARGA_E * (ni[j * J_Y + k] - ne[j * J_Y + k]) / n_0;
+
+    // Calcular potencial eléctrico en puntos de malla
+    poisson2D_dirichletX_periodicY(phi, rho, hx);
+    // Calcular campo eléctrico en puntos de malla
+
+    electric_field(phi, E_X, E_Y, hx);
+
+    // imprimir el potencial electroestatico.
+    if(kt % 5000  ==  0) {
+      cout << "Poisson #" << kt << endl; 
+      sprintf(buffer,"Poisson%d.data", kt);
+      ofstream dataFile(buffer);
+      for (int j  =  0; j < J_X; j++) {
+        double thisx  =  j * hx;
+        for (int k  =  0; k < J_Y; k++) {
+          double thisy  =  k * hx;
+          dataFile << thisx << '\t' << thisy << '\t' << phi[(j * J_Y) + k] << '\n';
+        }
+        dataFile << '\n';
+      }
+      dataFile.close();
+    }
+
+    // Avanzar posiciones de superpartículas electrónicas e Iónicas
+
+    Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, ELECTRONS, E_X, E_Y, hx, total_e_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+    Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, IONS, E_X, E_Y, hx, total_i_perdidos, mv2perdidas);//, total_elec_perdidos, total_ion_perdidos, mv2_perdidas);
+
+    clock_t tiempo1  =  clock();
+    if(kt % 5000 == 0) {
+      cout << " CPU time " << kt / 5000 << "  =  " << double(tiempo1 - tiempo0) / CLOCKS_PER_SEC << " sec" << endl;
+      tiempo0  =  clock();
+    }
+} //Cierre del ciclo principal
+/*
   double hx = DELTA_X / X0;                            // Paso espacial
   int max_it = 0;
 
@@ -223,14 +303,15 @@ int main() {
       cout << "fail veliy" << endl;
     else
       cout << "success veliy" << endl;
-  } //Cierre del ciclo principal
+  } //Cierre del ciclo principal*/
   cout << fixed;
-  cout << " GPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
+  /*cout << " GPU time Electric field =  " << telec / CLOCKS_PER_SEC << " sec" << endl;
   cout << " CPU time Electric field =  " << tselec / CLOCKS_PER_SEC << " sec" << endl;
   cout << " Electric field X = " << tselec / telec << endl;
   cout << " GPU time Motion         =  " << tmot / CLOCKS_PER_SEC << " sec" << endl;
   cout << " CPU time Motion         =  " << tsmot / CLOCKS_PER_SEC << " sec" << endl;
-  cout << " Motion X = " << tsmot / tmot << endl;
+  cout << " Motion X = " << tsmot / tmot << endl;*/
+  cout << "Termino" << endl;
   free(pos_e_x);
   free(pos_e_y);
   free(pos_i_x);
